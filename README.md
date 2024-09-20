@@ -17,3 +17,6 @@ Van Der Toorn & Geertse
 E-mail: info@vdtg.nl
 Telefoon: 0223 694 279
 Adres: Willemsoord 29A, 1781 AS, Den Helder
+
+## Ondersteunde besturingssystemen
+Ubuntu: https://github.com/Van-Der-Toorn-Geertse/vdtg-rmm/tree/ubuntu

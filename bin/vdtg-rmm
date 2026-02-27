@@ -20,11 +20,23 @@ then
         chmod +x /opt/vdtg-rmm/vdtg-rmm-daemon
     fi
 
-    # Add vdtg-rmm-daemon to crontab
-    if ! crontab -l | grep -q '/opt/vdtg-rmm/vdtg-rmm-daemon'
-    then
-        # Add vdtg-rmm-daemon to crontab and run every day at 06:00
-        (crontab -l ; echo "0 6 * * * /opt/vdtg-rmm/vdtg-rmm-daemon") | crontab -
+    # Ensure cron (cronie) is installed
+    if ! rpm -q cronie >/dev/null 2>&1; then
+        echo "Installing cron (cronie)..."
+        zypper install -y cronie
+    fi
+
+    # Ensure cron service is enabled and running
+    if systemctl list-unit-files | grep -q crond.service; then
+        systemctl enable --now crond
+    else
+        systemctl enable --now cron
+    fi
+
+    # Add vdtg-rmm-daemon to crontab if not already present
+    if ! crontab -l 2>/dev/null | grep -q "/opt/vdtg-rmm/vdtg-rmm-daemon"; then
+        echo "Adding cronjob for vdtg-rmm-daemon (every 6 hours)..."
+        (crontab -l 2>/dev/null; echo "0 */6 * * * /opt/vdtg-rmm/vdtg-rmm-daemon") | crontab -
     fi
 
     # Check if config file exists, if not copy example config file, else check if all config values are set or copy missing values from example config file
@@ -62,183 +74,136 @@ then
         done < /opt/vdtg-rmm/vdtg-rmm.config
     fi
 
-    # Check if file /opt/vdtg-rmm/ubuntu.sources is different from /etc/apt/sources.list.d/ubuntu.sources
-    if ! cmp -s /opt/vdtg-rmm/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources
-    then
+    # Check if custom repo files differ from installed ones
+    # We use OSS.repo, NON-OSS.repo and CODECS.repo from /opt/vdtg-rmm
 
-        # Backup current ubuntu.sources to ubuntu.sources.bak.current date
-        mv /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak.$(date +%Y%m%d%H%M%S)
-
-        # Copy VDTG Mirror ubuntu.sources to /etc/apt/sources.list.d
-        cp /opt/vdtg-rmm/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources
-
+    # Ensure OSS repo
+    if ! cmp -s /opt/vdtg-rmm/OSS.repo /etc/zypp/repos.d/OSS.repo 2>/dev/null; then
+        echo "Updating OSS repo to VDTG mirror..."
+        [ -f /etc/zypp/repos.d/OSS.repo ] && mv /etc/zypp/repos.d/OSS.repo /etc/zypp/repos.d/OSS.repo.bak.$(date +%Y%m%d%H%M%S)
+        cp /opt/vdtg-rmm/OSS.repo /etc/zypp/repos.d/OSS.repo
     fi
 
-    # Clear the apt cache.
-    apt clean
+    # Ensure NON-OSS repo
+    if ! cmp -s /opt/vdtg-rmm/NON-OSS.repo /etc/zypp/repos.d/NON-OSS.repo 2>/dev/null; then
+        echo "Updating NON-OSS repo to VDTG mirror..."
+        [ -f /etc/zypp/repos.d/NON-OSS.repo ] && mv /etc/zypp/repos.d/NON-OSS.repo /etc/zypp/repos.d/NON-OSS.repo.bak.$(date +%Y%m%d%H%M%S)
+        cp /opt/vdtg-rmm/NON-OSS.repo /etc/zypp/repos.d/NON-OSS.repo
+    fi
 
-    # Update packages
-    apt update
+    # Ensure CODECS repo
+    if ! cmp -s /opt/vdtg-rmm/CODECS.repo /etc/zypp/repos.d/CODECS.repo 2>/dev/null; then
+        echo "Updating CODECS repo to VDTG mirror..."
+        [ -f /etc/zypp/repos.d/CODECS.repo ] && mv /etc/zypp/repos.d/CODECS.repo /etc/zypp/repos.d/CODECS.repo.bak.$(date +%Y%m%d%H%M%S)
+        cp /opt/vdtg-rmm/CODECS.repo /etc/zypp/repos.d/CODECS.repo
+    fi
+
+    # Refresh zypper metadata
+    zypper refresh
 
     # Install package updates
-    apt upgrade -y
+    zypper update -y
 
     # Check if git is installed
-    if ! dpkg -l | grep -q git
-    then
-        # Install git
-        apt install -y git
+    if ! rpm -q git >/dev/null 2>&1; then
+        echo "Installing git..."
+        zypper install -y git
     fi
 
     # Check if net-tools is installed
-    if ! dpkg -l | grep -q net-tools
-    then
-        # Install net-tools
-        apt install -y net-tools
+    if ! rpm -q net-tools >/dev/null 2>&1; then
+        echo "Installing net-tools..."
+        zypper install -y net-tools
     fi
 
-    # Check if iputils-ping is installed
-    if ! dpkg -l | grep -q iputils-ping
-    then
-        # Install iputils-ping
-        apt install -y iputils-ping
+    # Check if iputils (contains ping) is installed
+    if ! rpm -q iputils >/dev/null 2>&1; then
+        echo "Installing iputils..."
+        zypper install -y iputils
     fi
 
-    # Get locale from vdtg-rmm.config file ignore all lines starting with '#' because they are comments
+    # Get locale from vdtg-rmm.config file (ignore commented lines)
     locale=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'locale' | awk -F'=' '{print $2}')
 
-    # Check if language-pack-$locale is installed
-    if ! dpkg -l | grep -q language-pack-$locale
-    then
-        # Install language-pack-$locale
-        apt install -y language-pack-$locale
+    # Ensure glibc-locale is installed (required for all locales)
+    if ! rpm -q glibc-locale >/dev/null 2>&1 && ! rpm -q glibc-locale-base >/dev/null 2>&1; then
+        zypper install -y glibc-locale glibc-locale-base
     fi
 
-    # If locale is nl then set local to Dutch
-    if [ "$locale" == "nl" ]
-    then
-        # Set local to Dutch
-        update-locale LANG=nl_NL.utf-8 LC_MESSAGES=POSIX
+    # If locale is nl then set locale to Dutch
+    if [ "$locale" == "nl" ]; then
+        echo "Setting system locale to Dutch..."
+        localectl set-locale LANG=nl_NL.UTF-8
     fi
 
-    # Get install_dnsmasq from vdtg-rmm.config file ignore all lines starting with '#' because they are comments
+    # Get install_dnsmasq from vdtg-rmm.config file (ignore commented lines)
     install_dnsmasq=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_dnsmasq' | awk -F'=' '{print $2}')
 
-    # Check if install dnsmasq is true
-    if [ "$install_dnsmasq" == "true" ]
-    then
+    # Check if install_dnsmasq is true
+    if [ "$install_dnsmasq" == "true" ]; then
+
         # Check if dnsmasq is installed
-        if ! dpkg -l | grep -q dnsmasq
-        then
+        if ! rpm -q dnsmasq >/dev/null 2>&1; then
+            echo "dnsmasq not installed, installing..."
 
-            # Disable systemd-resolved
-            systemctl stop systemd-resolved
-            systemctl disable systemd-resolved
-    
+            # Disable systemd-resolved only if it exists (some openSUSE systems do not use it)
+            if systemctl list-unit-files | grep -q systemd-resolved.service; then
+                systemctl stop systemd-resolved
+                systemctl disable systemd-resolved
+            fi
+
             # Install dnsmasq
-            apt install -y dnsmasq
-
+            zypper install -y dnsmasq
         fi
     fi
 
-    # Get install_docker from vdtg-rmm.config file ignore all lines starting with '#' because they are comments.
+    # Get install_docker from vdtg-rmm.config file (ignore commented lines)
     install_docker=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_docker' | awk -F'=' '{print $2}')
 
     # Check if install docker is true
-    if [ "$install_docker" == "true" ]
-    then
-        # Check if docker-ce is installed
-        if ! dpkg -l | grep -q docker-ce
-        then
-    
-            # Uninstall all conflicting packages
-            for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do apt-get remove $pkg; done
+    if [ "$install_docker" == "true" ]; then
 
-            # Add Docker's official GPG key:
-            apt-get update
-            apt-get install ca-certificates curl -y
-            install -m 0755 -d /etc/apt/keyrings
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-            chmod a+r /etc/apt/keyrings/docker.asc
+        # Check if Docker is installed
+        if ! rpm -q docker >/dev/null 2>&1; then
+            echo "Docker not installed, installing..."
 
-            # Add the repository to Apt sources:
-            echo \
-              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-              $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-              tee /etc/apt/sources.list.d/docker.list > /dev/null
-            apt-get update
+            # Install Docker using openSUSE repositories
+            zypper install -y docker docker-compose docker-buildx
 
-            # Install Docker.
-            apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-compose python3 python3-pip python3-setuptools -y
+            # Ensure docker group exists (usually already present)
+            if ! getent group docker >/dev/null 2>&1; then
+                groupadd docker
+            fi
 
-            # Create the docker group.
-            groupadd docker
+            # Enable and start Docker
+            systemctl enable --now docker
 
-            # Configure Docker to start on boot with systemd.
-            systemctl enable docker.service
-            systemctl enable containerd.service
-
+            # containerd is automatically installed and managed by systemd on openSUSE
         fi
     fi
 
-    # Check if docker-ce is installed, if so, check if /opt/vdtg-rmm/docker-data folder exists, if not create folder.
-    if dpkg -l | grep -q docker-ce
-    then
+    # Check if docker is installed
+    if rpm -q docker >/dev/null 2>&1; then
 
-        # Check if /opt/vdtg-rmm/docker-data folder exists, if not create folder
-        if [ ! -d "/opt/vdtg-rmm/docker-data" ]
-        then
-
-            # Create /opt/vdtg-rmm/docker-data folder
+        # Ensure docker-data folder exists
+        if [ ! -d "/opt/vdtg-rmm/docker-data" ]; then
             mkdir /opt/vdtg-rmm/docker-data
-
         fi
 
-        # Get install_docker_portainer from vdtg-rmm.config file ignore all lines starting with '#' because they are comments.
+        # Get install_docker_portainer from config
         install_docker_portainer=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_docker_portainer' | awk -F'=' '{print $2}')
 
-        # Check if install docker portainer is true.
-        if [ "$install_docker_portainer" == "true" ]
-        then
+        # Check if Portainer should be installed
+        if [ "$install_docker_portainer" == "true" ]; then
 
-            # Check if vdtg-portainer exists.
-            if ! docker ps -a | grep -q vdtg-portainer
-            then
+            # Check if container exists
+            if ! docker ps -a | grep -q vdtg-portainer; then
 
-                # Create vdtg-portainer container with /opt/vdtg-rmm/docker-compose/portainer/docker-compose.yml.
+                # Deploy Portainer using compose
                 docker compose -f /opt/vdtg-rmm/docker-compose/portainer/docker-compose.yml up -d
 
             fi
-
         fi
-
-        # Get install_docker_unifi-video from vdtg-rmm.config file ignore all lines starting with '#' because they are comments.
-        install_docker_unifi_video=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_docker_unifi_video' | awk -F'=' '{print $2}')
-
-        # Check if install docker unifi video is true.
-        if [ "$install_docker_unifi_video" == "true" ]
-        then
-
-            # Check if vdtg-unifi-video exists.
-            if ! docker ps -a | grep -q vdtg-unifi-video
-            then
-
-                # Check if /mnt/bigstorage folder exists, if not create folder.
-                if [ ! -d "/mnt/bigstorage" ]
-                then
-
-                    # Create /mnt/bigstorage folder
-                    mkdir /mnt/bigstorage
-
-                fi
-
-                # Create vdtg-unifi-video container with /opt/vdtg-rmm/docker-compose/unifi-video/docker-compose.yml.
-                docker compose -f /opt/vdtg-rmm/docker-compose/unifi-video/docker-compose.yml up -d
-
-            fi
-
-        fi
-
     fi
 
 else

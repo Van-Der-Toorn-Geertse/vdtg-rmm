@@ -1,0 +1,5 @@
+[vdtg-debug-update-non-oss]
+name=Update Repository (Debug, Non-OSS)
+enabled=0
+autorefresh=1
+baseurl=http://mirror.miruict.nl/opensuse/debug/update/leap/$releasever/non-oss/

@@ -1,0 +1,5 @@
+[vdtg-update-non-oss]
+name=Update Repository (Non-Oss)
+enabled=1
+autorefresh=1
+baseurl=http://mirror.miruict.nl/opensuse/update/leap/$releasever/non-oss/

@@ -1,0 +1,5 @@
+[vdtg-update]
+name=Main Update Repository
+enabled=1
+autorefresh=1
+baseurl=http://mirror.miruict.nl/opensuse/update/leap/$releasever/oss/

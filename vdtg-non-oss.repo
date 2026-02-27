@@ -1,4 +1,4 @@
-[repo-non-oss]
+[vdtg-non-oss]
 name=Non-OSS Repository
 enabled=1
 autorefresh=1

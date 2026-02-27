@@ -1,0 +1,8 @@
+[vdtg-sle-update]
+name=Update repository with updates from SUSE Linux Enterprise 15
+enabled=1
+autorefresh=1
+baseurl=http://mirror.miruict.nl/opensuse/update/leap/$releasever/sle/
+path=/
+type=rpm-md
+keeppackages=0

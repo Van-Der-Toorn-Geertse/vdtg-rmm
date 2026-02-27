@@ -1,0 +1,5 @@
+[vdtg-source]
+name=Source Repository
+enabled=0
+autorefresh=1
+baseurl=http://mirror.miruict.nl/opensuse/source/distribution/leap/$releasever/repo/oss/

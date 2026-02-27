@@ -74,34 +74,47 @@ then
         done < /opt/vdtg-rmm/vdtg-rmm.config
     fi
 
-    # Check if custom repo files differ from installed ones
-    # We use OSS.repo, NON-OSS.repo and CODECS.repo from /opt/vdtg-rmm
+    # Replace openSUSE repo definitions with VDTG repos (no backups)
+    SRC_REPO_DIR="/opt/vdtg-rmm/repos/leap"
+    DST_REPO_DIR="/etc/zypp/repos.d"
 
-    # Ensure OSS repo
-    if ! cmp -s /opt/vdtg-rmm/OSS.repo /etc/zypp/repos.d/OSS.repo 2>/dev/null; then
-        echo "Updating OSS repo to VDTG mirror..."
-        [ -f /etc/zypp/repos.d/OSS.repo ] && mv /etc/zypp/repos.d/OSS.repo /etc/zypp/repos.d/OSS.repo.bak.$(date +%Y%m%d%H%M%S)
-        cp /opt/vdtg-rmm/OSS.repo /etc/zypp/repos.d/OSS.repo
+    # Fail early if source repo dir is missing or empty
+    if [ ! -d "$SRC_REPO_DIR" ] || ! ls -1 "$SRC_REPO_DIR"/*.repo >/dev/null 2>&1; then
+        echo "ERROR: No .repo files found in $SRC_REPO_DIR. Aborting repo replacement."
+        exit
+    else
+        echo "Cleaning existing openSUSE/vdtg repo files in $DST_REPO_DIR ..."
+
+        # Remove default openSUSE repos and any previous vdtg-* repos (no backups)
+        shopt -s nullglob
+        for f in "$DST_REPO_DIR"/*.repo; do
+            bn="$(basename "$f")"
+            if [[ "$bn" == vdtg-* ]] || \
+               [[ "$bn" == openSUSE* ]] || \
+               [[ "$bn" == *oss*.repo ]] || \
+               [[ "$bn" == *non-oss*.repo ]] || \
+               [[ "$bn" == *update*.repo ]] || \
+               [[ "$bn" == *backports*.repo ]] || \
+               [[ "$bn" == *debug*.repo ]] || \
+               [[ "$bn" == *sle*.repo ]] || \
+               [[ "$bn" == *source*.repo ]] || \
+               [[ "$bn" == *openh264*.repo ]]; then
+                rm -f "$f"
+            fi
+        done
+        shopt -u nullglob
+
+        echo "Installing VDTG .repo set from $SRC_REPO_DIR ..."
+        cp -f "$SRC_REPO_DIR"/*.repo "$DST_REPO_DIR"/
+
     fi
 
-    # Ensure NON-OSS repo
-    if ! cmp -s /opt/vdtg-rmm/NON-OSS.repo /etc/zypp/repos.d/NON-OSS.repo 2>/dev/null; then
-        echo "Updating NON-OSS repo to VDTG mirror..."
-        [ -f /etc/zypp/repos.d/NON-OSS.repo ] && mv /etc/zypp/repos.d/NON-OSS.repo /etc/zypp/repos.d/NON-OSS.repo.bak.$(date +%Y%m%d%H%M%S)
-        cp /opt/vdtg-rmm/NON-OSS.repo /etc/zypp/repos.d/NON-OSS.repo
-    fi
-
-    # Ensure CODECS repo
-    if ! cmp -s /opt/vdtg-rmm/CODECS.repo /etc/zypp/repos.d/CODECS.repo 2>/dev/null; then
-        echo "Updating CODECS repo to VDTG mirror..."
-        [ -f /etc/zypp/repos.d/CODECS.repo ] && mv /etc/zypp/repos.d/CODECS.repo /etc/zypp/repos.d/CODECS.repo.bak.$(date +%Y%m%d%H%M%S)
-        cp /opt/vdtg-rmm/CODECS.repo /etc/zypp/repos.d/CODECS.repo
-    fi
-
-    # Refresh zypper metadata
+    # Refresh repositories
+    echo "Refreshing repositories..."
     zypper refresh
 
     # Install package updates
+    echo "Checking for and if available installing package updates..."
     zypper update -y
 
     # Check if git is installed
@@ -134,6 +147,7 @@ then
     if [ "$locale" == "nl" ]; then
         echo "Setting system locale to Dutch..."
         localectl set-locale LANG=nl_NL.UTF-8
+        localectl set-keymap us-intl
     fi
 
     # Get install_dnsmasq from vdtg-rmm.config file (ignore commented lines)

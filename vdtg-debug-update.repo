@@ -1,0 +1,5 @@
+[vdtg-debug-update]
+name=Update Repository (Debug)
+enabled=0
+autorefresh=1
+baseurl=http://mirror.miruict.nl/opensuse/debug/update/leap/$releasever/oss/

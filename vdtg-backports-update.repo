@@ -1,0 +1,8 @@
+[vdtg-backports-update]
+name=Update repository of openSUSE Backports
+enabled=1
+autorefresh=1
+baseurl=http://mirror.miruict.nl/opensuse/update/leap/$releasever/backports/
+path=/
+type=rpm-md
+keeppackages=0

@@ -1,4 +1,4 @@
-[repo-openh264]
+[vdtg-openh264]
 name=Open H.264 Codec (openSUSE Leap)
 enabled=1
 autorefresh=1

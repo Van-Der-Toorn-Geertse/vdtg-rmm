@@ -1,4 +1,4 @@
-[repo-backports-debug-update]
+[vdtg-backports-debug-update]
 name=Update repository with updates for openSUSE Leap debuginfo packages from openSUSE Backports
 enabled=0
 autorefresh=1

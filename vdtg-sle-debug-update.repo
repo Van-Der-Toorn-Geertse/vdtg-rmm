@@ -1,0 +1,8 @@
+[vdtg-sle-debug-update]
+name=Update repository with debuginfo for updates from SUSE Linux Enterprise 15
+enabled=0
+autorefresh=1
+baseurl=http://mirror.miruict.nl/opensuse/debug/update/leap/$releasever/sle/
+path=/
+type=rpm-md
+keeppackages=0

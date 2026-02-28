@@ -2,7 +2,7 @@
 
 # Check if application is run as root
 if [ "$EUID" -ne 0 ]
-  then echo "Please run application as root"
+  then echo "Please run application as root or with sudo"
   exit
 fi
 
@@ -81,7 +81,6 @@ then
     # Fail early if source repo dir is missing or empty
     if [ ! -d "$SRC_REPO_DIR" ] || ! ls -1 "$SRC_REPO_DIR"/*.repo >/dev/null 2>&1; then
         echo "ERROR: No .repo files found in $SRC_REPO_DIR. Aborting repo replacement."
-        exit
     else
         echo "Cleaning existing openSUSE/vdtg repo files in $DST_REPO_DIR ..."
 
@@ -171,52 +170,92 @@ then
         fi
     fi
 
-    # Get install_docker from vdtg-rmm.config file (ignore commented lines)
+    #############################
+    # Container-detectie & Docker-skip
+    #############################
+
+    # Bepaal of we in een container draaien (LXC, Docker, Podman, systemd-nspawn, etc.)
+    in_container="false"
+    container_type="unknown"
+
+    # 1) systemd-detect-virt (betrouwbaar voor LXC/containers)
+    if command -v systemd-detect-virt >/dev/null 2>&1; then
+        ct_out="$(systemd-detect-virt --container 2>/dev/null || true)"
+        if [ -n "$ct_out" ] && [ "$ct_out" != "none" ]; then
+            in_container="true"
+            container_type="$ct_out"
+        fi
+    fi
+
+    # 2) Fallback-signalen (als systemd-detect-virt ontbreekt of niets meldt)
+    #   - /.dockerenv : Docker container
+    #   - /run/systemd/container : systemd-nspawn of andere container hints
+    #   - lxc-namespace in /proc/1/environ
+    if [ "$in_container" = "false" ]; then
+        if [ -f "/.dockerenv" ]; then
+            in_container="true"
+            container_type="docker"
+        elif [ -f "/run/systemd/container" ]; then
+            in_container="true"
+            container_type="$(cat /run/systemd/container 2>/dev/null || echo systemd-container)"
+        elif tr '\0' '\n' < /proc/1/environ 2>/dev/null | grep -qi 'container='; then
+            in_container="true"
+            container_type="generic-container"
+        fi
+    fi
+
+    # Log containerstatus
+    if [ "$in_container" = "true" ]; then
+        echo "Detected container environment: ${container_type}"
+        echo "Docker installation and deployments will be skipped inside containers."
+    else
+        echo "No container environment detected; proceeding with Docker logic if enabled."
+    fi
+
+    #############################
+    # Docker-installatie (alleen als NIET in container)
+    #############################
+
+    # Lees setting uit config
     install_docker=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_docker' | awk -F'=' '{print $2}')
 
-    # Check if install docker is true
-    if [ "$install_docker" == "true" ]; then
+    if [ "$in_container" = "false" ] && [ "$install_docker" = "true" ]; then
 
-        # Check if Docker is installed
+        # Check of Docker al geïnstalleerd is
         if ! rpm -q docker >/dev/null 2>&1; then
-            echo "Docker not installed, installing..."
-
-            # Install Docker using openSUSE repositories
+            echo "Docker not installed, installing via openSUSE repositories..."
             zypper install -y docker docker-compose docker-buildx
 
-            # Ensure docker group exists (usually already present)
+            # Zorg voor docker group
             if ! getent group docker >/dev/null 2>&1; then
                 groupadd docker
             fi
 
-            # Enable and start Docker
+            # Enable & start Docker
             systemctl enable --now docker
-
-            # containerd is automatically installed and managed by systemd on openSUSE
         fi
-    fi
 
-    # Check if docker is installed
-    if rpm -q docker >/dev/null 2>&1; then
-
-        # Ensure docker-data folder exists
+        # Post-install basis: datafolder
         if [ ! -d "/opt/vdtg-rmm/docker-data" ]; then
             mkdir /opt/vdtg-rmm/docker-data
         fi
 
-        # Get install_docker_portainer from config
-        install_docker_portainer=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_docker_portainer' | awk -F'=' '{print $2}')
-
-        # Check if Portainer should be installed
-        if [ "$install_docker_portainer" == "true" ]; then
-
-            # Check if container exists
+        # Portainer (optioneel)
+        install_portainer=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_portainer' | awk -F'=' '{print $2}')
+        if [ "$install_portainer" = "true" ]; then
             if ! docker ps -a | grep -q vdtg-portainer; then
-
-                # Deploy Portainer using compose
+                echo "Deploying Portainer via compose..."
                 docker compose -f /opt/vdtg-rmm/docker-compose/portainer/docker-compose.yml up -d
-
+            else
+                echo "Portainer container already exists; skipping deploy."
             fi
+        fi
+
+    elif [ "$in_container" = "true" ]; then
+        # We draaien in een container: Docker overslaan, maar wel even melden of het geconfigureerd stond
+        if [ "$install_docker" = "true" ]; then
+            echo "NOTE: 'install_docker=true' in config, but running inside a container (${container_type})."
+            echo "      Skipping Docker install and compose deployments by design."
         fi
     fi
 

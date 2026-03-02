@@ -13,11 +13,23 @@ then
     # Move to vdtg-rmm application folder
     cd /opt/vdtg-rmm
 
-    # Reset any changes made to the git repository
-    git reset --hard
+    # Check if vdtg-rmm.config file exists else stop code execution
+    if [ ! -f "vdtg-rmm.config" ]; then
+        echo "Configuration file vdtg-rmm.config not found in /opt/vdtg-rmm. Exiting application."
+        exit
+    fi
 
-    # Pull latest changes from git
-    git pull
+    # Check if update_app is set to true in config file and if so, update application before running it
+    update_app=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'update_app' | awk -F'=' '{print $2}')
+    if [ "$update_app" == "true" ]; then
+        echo "Updating application..."
+        
+        # Reset any local changes to the application code
+        git reset --hard
+
+        # Pull latest changes from the repository
+        git pull
+    fi
 
     # Make vdtg-rmm application executable
     chmod +x /opt/vdtg-rmm/bin/vdtg-rmm

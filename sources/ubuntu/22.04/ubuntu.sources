@@ -1,5 +1,5 @@
 Types: deb
-URIs: http://mirror.miruict.nl/ubuntu/
+URIs: http://mirror.vdtg.nl/ubuntu/
 Suites: noble noble-updates noble-backports
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg

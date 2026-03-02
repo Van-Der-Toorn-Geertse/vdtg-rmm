@@ -1,10 +1,12 @@
 # Set locale, for now only Dutch (nl) is an option
 locale=nl
-# Install dnsmasq
-install_dnsmasq=false
-# Install docker-ce
-install_docker=false
-# Install portainer
-install_docker_portainer=false
-# Install unifi-video
-install_docker_unifi_video=false
+# Auto update
+update_auto=false
+# Install git
+install_git=true
+# Install net-tools
+install_net-tools=true
+# Install iputils_ping
+install_iputils_ping=true
+# Enable cron
+cron_enable=true

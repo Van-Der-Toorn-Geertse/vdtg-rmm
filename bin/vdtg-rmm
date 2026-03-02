@@ -1,244 +1,145 @@
 #!/bin/bash
 
 # Check if application is run as root
-if [ "$EUID" -ne 0 ]
-  then echo "Please run application as root"
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run application as root"
   exit
 fi
 
 # Check if /opt/vdtg-rmm application folder exists else stop code execution
-if [ -d "/opt/vdtg-rmm" ]
-then
+if [ -d "/opt/vdtg-rmm" ]; then
 
-    # Move to vdtg-rmm application folder
     cd /opt/vdtg-rmm
 
-    # Check if daemon file is executable
-    if [ ! -x /opt/vdtg-rmm/vdtg-rmm-daemon ]
-    then
-        # Make vdtg-rmm daemon executable
+    # Ensure daemon is executable
+    if [ ! -x /opt/vdtg-rmm/vdtg-rmm-daemon ]; then
         chmod +x /opt/vdtg-rmm/vdtg-rmm-daemon
     fi
 
-    # Add vdtg-rmm-daemon to crontab
-    if ! crontab -l | grep -q '/opt/vdtg-rmm/vdtg-rmm-daemon'
-    then
-        # Add vdtg-rmm-daemon to crontab and run every day at 06:00
-        (crontab -l ; echo "0 6 * * * /opt/vdtg-rmm/vdtg-rmm-daemon") | crontab -
+    cron_enable=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'cron_enable' | awk -F'=' '{print $2}')
+    if [ "$cron_enable" == "true" ]; then
+        # Ensure cron is installed and enabled
+        if ! dpkg -l | grep -q cron; then
+            apt install -y cron
+        fi
+        systemctl enable --now cron
+
+        # Add vdtg-rmm-daemon to crontab if not already present (every 6 hours)
+        if ! crontab -l 2>/dev/null | grep -q "/opt/vdtg-rmm/vdtg-rmm-daemon"; then
+            (crontab -l 2>/dev/null; echo "0 */6 * * * /opt/vdtg-rmm/vdtg-rmm-daemon") | crontab -
+        fi
+    else
+        # Remove vdtg-rmm-daemon from crontab if present
+        if crontab -l 2>/dev/null | grep -q "/opt/vdtg-rmm/vdtg-rmm-daemon"; then
+            crontab -l 2>/dev/null | grep -v "/opt/vdtg-rmm/vdtg-rmm-daemon" | crontab -
+        fi
     fi
 
-    # Check if config file exists, if not copy example config file, else check if all config values are set or copy missing values from example config file
-    if [ ! -f /opt/vdtg-rmm/vdtg-rmm.config ]
-    then
-        # Copy example config file to /opt/vdtg-rmm
+    # Config file logic
+    if [ ! -f /opt/vdtg-rmm/vdtg-rmm.config ]; then
         cp /opt/vdtg-rmm/vdtg-rmm.config.example /opt/vdtg-rmm/vdtg-rmm.config
     else
-        # Check if all config values are set, if not copy missing values from example config file
-        while IFS= read -r line
-        do
-            # Check if line is not a comment
-            if [[ ! $line == \#* ]]
-            then
-                # Check if line is not empty
-                if [ ! -z "$line" ]
-                then
-                    # Get key from line
-                    key=$(echo $line | awk -F'=' '{print $1}')
-
-                    # Get value from line
-                    value=$(echo $line | awk -F'=' '{print $2}')
-
-                    # Check if value is empty
-                    if [ -z "$value" ]
-                    then
-                        # Get value from example config file
-                        default_value=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config.example | grep -i $key | awk -F'=' '{print $2}')
-
-                        # Add key and value to config file
-                        sed -i "s/$key=/$key=$default_value/g" /opt/vdtg-rmm/vdtg-rmm.config
-                    fi
+        # Vul lege values aan
+        while IFS= read -r line; do
+            if [[ ! $line == \#* ]] && [ ! -z "$line" ]; then
+                key=$(echo $line | awk -F'=' '{print $1}')
+                value=$(echo $line | awk -F'=' '{print $2}')
+                if [ -z "$value" ]; then
+                    default_value=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config.example | grep -i "^$key=" | awk -F'=' '{print $2}')
+                    sed -i "s/^$key=/$key=$default_value/" /opt/vdtg-rmm/vdtg-rmm.config
                 fi
             fi
         done < /opt/vdtg-rmm/vdtg-rmm.config
+
+        # Voeg ontbrekende regels (inclusief comments) toe
+        while IFS= read -r line; do
+            # Check of regel exact voorkomt in config
+            if ! grep -Fxq "$line" /opt/vdtg-rmm/vdtg-rmm.config; then
+                echo "$line" >> /opt/vdtg-rmm/vdtg-rmm.config
+            fi
+        done < /opt/vdtg-rmm/vdtg-rmm.config.example
     fi
 
-    # Check if file /opt/vdtg-rmm/ubuntu.sources is different from /etc/apt/sources.list.d/ubuntu.sources
-    if ! cmp -s /opt/vdtg-rmm/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources
-    then
+    # Detect OS and version, then select correct sources.list file
+    OS_ID="$(. /etc/os-release && echo "$ID")"
+    OS_VER="$(. /etc/os-release && echo "$VERSION_ID")"
 
-        # Backup current ubuntu.sources to ubuntu.sources.bak.current date
-        mv /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak.$(date +%Y%m%d%H%M%S)
-
-        # Copy VDTG Mirror ubuntu.sources to /etc/apt/sources.list.d
-        cp /opt/vdtg-rmm/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources
-
+    if [ "$OS_ID" = "ubuntu" ]; then
+        # Set sources paths for Ubuntu
+        SRC_LIST_FILE="/opt/vdtg-rmm/sources/ubuntu/${OS_VER}/sources.list"
+        SRC_UBUNTU_SOURCES_FILE="/opt/vdtg-rmm/sources/ubuntu/${OS_VER}/ubuntu.sources"
+    else
+        SRC_LIST_FILE=""
+        SRC_UBUNTU_SOURCES_FILE=""
     fi
 
-    # Clear the apt cache.
-    apt clean
-
-    # Update packages
-    apt update
-
-    # Install package updates
-    apt upgrade -y
-
-    # Check if git is installed
-    if ! dpkg -l | grep -q git
-    then
-        # Install git
-        apt install -y git
+    # Copy sources.list if it exists and is different
+    if [ -n "$SRC_LIST_FILE" ] && [ -f "$SRC_LIST_FILE" ]; then
+        DST_LIST_FILE="/etc/apt/sources.list"
+        if [ ! -f "$DST_LIST_FILE" ] || ! cmp -s "$SRC_LIST_FILE" "$DST_LIST_FILE"; then
+            cp "$SRC_LIST_FILE" "$DST_LIST_FILE"
+        fi
     fi
 
-    # Check if net-tools is installed
-    if ! dpkg -l | grep -q net-tools
-    then
-        # Install net-tools
-        apt install -y net-tools
+    # Copy ubuntu.sources if it exists and is different
+    if [ -n "$SRC_UBUNTU_SOURCES_FILE" ] && [ -f "$SRC_UBUNTU_SOURCES_FILE" ]; then
+        DST_UBUNTU_SOURCES_FILE="/etc/apt/sources.list.d/ubuntu.sources"
+        # Ensure destination directory exists
+        mkdir -p /etc/apt/sources.list.d
+        if [ ! -f "$DST_UBUNTU_SOURCES_FILE" ] || ! cmp -s "$SRC_UBUNTU_SOURCES_FILE" "$DST_UBUNTU_SOURCES_FILE"; then
+            cp "$SRC_UBUNTU_SOURCES_FILE" "$DST_UBUNTU_SOURCES_FILE"
+        fi
     fi
 
-    # Check if iputils-ping is installed
-    if ! dpkg -l | grep -q iputils-ping
-    then
-        # Install iputils-ping
-        apt install -y iputils-ping
+    # Check config for cron_enable and update_auto settings, if cron_enable is true disable cron before updates and re-enable after updates
+    cron_enable=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'cron_enable' | awk -F'=' '{print $2}')
+    if [ "$cron_enable" == "true" ]; then
+        sed -i 's/^\([[:space:]]*cron_enable[[:space:]]*=[[:space:]]*\).*/\1false/' /opt/vdtg-rmm/vdtg-rmm.config
     fi
 
-    # Get locale from vdtg-rmm.config file ignore all lines starting with '#' because they are comments
+    update_auto=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'update_auto' | awk -F'=' '{print $2}')
+    if [ "$update_auto" == "true" ]; then
+        # Refresh repositories and update system
+        apt clean
+        apt update
+        apt upgrade -y
+    fi
+
+    # After updates, re-enable cron if it was enabled before
+    if [ "$cron_enable" == "true" ]; then
+        sed -i 's/^\([[:space:]]*cron_enable[[:space:]]*=[[:space:]]*\).*/\1true/' /opt/vdtg-rmm/vdtg-rmm.config
+    fi
+
+    install_git=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_git' | awk -F'=' '{print $2}')
+    if [ "$install_git" == "true" ]; then
+        if ! dpkg -l | grep -q git; then
+            apt install -y git
+        fi
+    fi
+
+    install_net_tools=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_net_tools' | awk -F'=' '{print $2}')
+    if [ "$install_net_tools" == "true" ]; then
+        if ! dpkg -l | grep -q net-tools; then
+            apt install -y net-tools
+        fi
+    fi
+
+    install_iputils_ping=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_iputils_ping' | awk -F'=' '{print $2}')
+    if [ "$install_iputils_ping" == "true" ]; then
+        if ! dpkg -l | grep -q iputils-ping; then
+            apt install -y iputils-ping
+        fi
+    fi
+
+    # Locale setup
     locale=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'locale' | awk -F'=' '{print $2}')
-
-    # Check if language-pack-$locale is installed
-    if ! dpkg -l | grep -q language-pack-$locale
-    then
-        # Install language-pack-$locale
-        apt install -y language-pack-$locale
-    fi
-
-    # If locale is nl then set local to Dutch
-    if [ "$locale" == "nl" ]
-    then
-        # Set local to Dutch
-        update-locale LANG=nl_NL.utf-8 LC_MESSAGES=POSIX
-    fi
-
-    # Get install_dnsmasq from vdtg-rmm.config file ignore all lines starting with '#' because they are comments
-    install_dnsmasq=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_dnsmasq' | awk -F'=' '{print $2}')
-
-    # Check if install dnsmasq is true
-    if [ "$install_dnsmasq" == "true" ]
-    then
-        # Check if dnsmasq is installed
-        if ! dpkg -l | grep -q dnsmasq
-        then
-
-            # Disable systemd-resolved
-            systemctl stop systemd-resolved
-            systemctl disable systemd-resolved
-    
-            # Install dnsmasq
-            apt install -y dnsmasq
-
+    if [ -n "$locale" ]; then
+        if ! dpkg -l | grep -q "locales"; then
+            apt install -y locales
         fi
-    fi
-
-    # Get install_docker from vdtg-rmm.config file ignore all lines starting with '#' because they are comments.
-    install_docker=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_docker' | awk -F'=' '{print $2}')
-
-    # Check if install docker is true
-    if [ "$install_docker" == "true" ]
-    then
-        # Check if docker-ce is installed
-        if ! dpkg -l | grep -q docker-ce
-        then
-    
-            # Uninstall all conflicting packages
-            for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do apt-get remove $pkg; done
-
-            # Add Docker's official GPG key:
-            apt-get update
-            apt-get install ca-certificates curl -y
-            install -m 0755 -d /etc/apt/keyrings
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-            chmod a+r /etc/apt/keyrings/docker.asc
-
-            # Add the repository to Apt sources:
-            echo \
-              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-              $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-              tee /etc/apt/sources.list.d/docker.list > /dev/null
-            apt-get update
-
-            # Install Docker.
-            apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-compose python3 python3-pip python3-setuptools -y
-
-            # Create the docker group.
-            groupadd docker
-
-            # Configure Docker to start on boot with systemd.
-            systemctl enable docker.service
-            systemctl enable containerd.service
-
+        if [ "$locale" == "nl" ]; then
+            update-locale LANG=nl_NL.UTF-8 LC_MESSAGES=POSIX
         fi
-    fi
-
-    # Check if docker-ce is installed, if so, check if /opt/vdtg-rmm/docker-data folder exists, if not create folder.
-    if dpkg -l | grep -q docker-ce
-    then
-
-        # Check if /opt/vdtg-rmm/docker-data folder exists, if not create folder
-        if [ ! -d "/opt/vdtg-rmm/docker-data" ]
-        then
-
-            # Create /opt/vdtg-rmm/docker-data folder
-            mkdir /opt/vdtg-rmm/docker-data
-
-        fi
-
-        # Get install_docker_portainer from vdtg-rmm.config file ignore all lines starting with '#' because they are comments.
-        install_docker_portainer=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_docker_portainer' | awk -F'=' '{print $2}')
-
-        # Check if install docker portainer is true.
-        if [ "$install_docker_portainer" == "true" ]
-        then
-
-            # Check if vdtg-portainer exists.
-            if ! docker ps -a | grep -q vdtg-portainer
-            then
-
-                # Create vdtg-portainer container with /opt/vdtg-rmm/docker-compose/portainer/docker-compose.yml.
-                docker compose -f /opt/vdtg-rmm/docker-compose/portainer/docker-compose.yml up -d
-
-            fi
-
-        fi
-
-        # Get install_docker_unifi-video from vdtg-rmm.config file ignore all lines starting with '#' because they are comments.
-        install_docker_unifi_video=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_docker_unifi_video' | awk -F'=' '{print $2}')
-
-        # Check if install docker unifi video is true.
-        if [ "$install_docker_unifi_video" == "true" ]
-        then
-
-            # Check if vdtg-unifi-video exists.
-            if ! docker ps -a | grep -q vdtg-unifi-video
-            then
-
-                # Check if /mnt/bigstorage folder exists, if not create folder.
-                if [ ! -d "/mnt/bigstorage" ]
-                then
-
-                    # Create /mnt/bigstorage folder
-                    mkdir /mnt/bigstorage
-
-                fi
-
-                # Create vdtg-unifi-video container with /opt/vdtg-rmm/docker-compose/unifi-video/docker-compose.yml.
-                docker compose -f /opt/vdtg-rmm/docker-compose/unifi-video/docker-compose.yml up -d
-
-            fi
-
-        fi
-
     fi
 
 else

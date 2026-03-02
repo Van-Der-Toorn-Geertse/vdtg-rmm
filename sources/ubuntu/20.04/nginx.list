@@ -1,0 +1,2 @@
+deb https://mirror.vdtg.nl/ppa/ondrej/nginx/ubuntu focal main
+deb-src https://mirror.vdtg.nl/ppa/ondrej/nginx/ubuntu focal main

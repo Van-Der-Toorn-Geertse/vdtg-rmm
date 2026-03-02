@@ -143,7 +143,10 @@ if [ -d "/opt/vdtg-rmm" ]; then
             apt install -y locales
         fi
         if [ "$locale" == "nl" ]; then
-            update-locale LANG=nl_NL.UTF-8 LC_MESSAGES=POSIX
+            if [ "$(locale | grep LANG= | awk -F'=' '{print $2}')" != "nl_NL.UTF-8" ]; then
+                locale-gen nl_NL.UTF-8
+                update-locale LANG=nl_NL.UTF-8
+            fi
         fi
     fi
 

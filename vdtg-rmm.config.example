@@ -1,7 +1,7 @@
 # Set locale, for now only Dutch (nl) is an option
 locale=nl
-# Auto update
-update_auto=false
+# Auto update OS
+update_os=false
 # Install git
 install_git=true
 # Install net-tools
@@ -10,3 +10,7 @@ install_net-tools=true
 install_iputils_ping=true
 # Enable cron
 cron_enable=true
+# Auto update application
+update_app=true
+# Auto reboot after updating OS
+update_reboot=false

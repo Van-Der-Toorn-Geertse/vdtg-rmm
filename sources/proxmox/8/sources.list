@@ -1,0 +1,6 @@
+# VDTG Mirror
+deb http://mirror.vdtg.nl/debian bookworm main contrib
+deb http://mirror.vdtg.nl/debian bookworm-updates main contrib
+deb http://mirror.vdtg.nl/pve bookworm pve-no-subscription
+deb http://mirror.vdtg.nl/debian-security bookworm-security main contrib
+deb http://mirror.vdtg.nl/ceph-quincy bookworm main

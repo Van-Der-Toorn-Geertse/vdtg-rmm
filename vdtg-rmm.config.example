@@ -1,0 +1,12 @@
+# Set locale, for now only Dutch (nl) is an option
+locale=nl
+# Auto update
+update_auto=false
+# Install git
+install_git=true
+# Install net-tools
+install_net-tools=true
+# Install iputils_ping
+install_iputils_ping=true
+# Enable cron
+cron_enable=true

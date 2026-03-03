@@ -155,6 +155,99 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
+    # Check config for install_docker setting, if true then check if docker is installed and install it if not
+    install_docker=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_docker' | awk -F'=' '{print $2}')
+    if [ "$install_docker" == "true" ]; then
+        # Check if docker-data folder exists in /opt/vdtg-rmm, if not create it and set permissions to 755
+        if [ ! -d "/opt/vdtg-rmm/docker-data" ]; then
+            mkdir /opt/vdtg-rmm/docker-data
+            chmod 755 /opt/vdtg-rmm/docker-data
+        fi
+        # Check if docker-ce package is installed, if not install docker-ce, docker-ce-cli and containerd.io packages
+        if ! dpkg -l | grep -q docker-ce; then
+            # Copy ubuntu.list if it exists and is different
+            if [ -f "/opt/vdtg-rmm/sources/ubuntu/${OS_VER}/docker.list" ]; then
+                if [ ! -f "/etc/apt/sources.list.d/docker.list" ] || ! cmp -s "/opt/vdtg-rmm/sources/ubuntu/${OS_VER}/docker.list" "/etc/apt/sources.list.d/docker.list"; then
+                    cp "/opt/vdtg-rmm/sources/ubuntu/${OS_VER}/docker.list" "/etc/apt/sources.list.d/docker.list"
+                fi
+            fi
+
+            # Add Docker GPG key if not already added
+            if ! apt-key list | grep -q "Docker"; then
+                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+            fi
+
+            # Refresh repositories and install docker-ce, docker-ce-cli and containerd.io packages
+            apt clean
+            apt update
+            apt install -y docker-ce docker-ce-cli containerd.io
+        fi
+
+        # Check if docker is running, if not start docker service
+        if ! systemctl is-active --quiet docker; then
+            systemctl start docker
+        fi
+
+        # Check again if docker is running
+        if systemctl is-active --quiet docker; then
+            # Check config for install_portainer setting, if true then check if portainer container is running and install it if not
+            install_portainer=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_portainer' | awk -F'=' '{print $2}')
+            if [ "$install_portainer" == "true" ]; then
+                # Check if docker-compose file for portainer exists, if it does check if portainer container is running and install it if not, if it is running pull latest image and recreate container
+                if [ -f "/opt/vdtg-rmm/docker-compose/portainer/docker-compose.yml" ]; then
+                    # Check if portainer container is running, if not start portainer container using docker-compose, if it is running pull latest image and recreate container
+                    if ! docker ps --format '{{.Names}}' | grep -q "vdtg-rmm-portainer"; then
+                        # Start portainer container using docker-compose
+                        docker-compose -f /opt/vdtg-rmm/docker-compose/portainer/docker-compose.yml up -d
+                    else
+                        # Pull latest image and recreate container
+                        docker-compose -f /opt/vdtg-rmm/docker-compose/portainer/docker-compose.yml pull
+                        docker-compose -f /opt/vdtg-rmm/docker-compose/portainer/docker-compose.yml up -d
+                    fi
+                fi
+            fi
+            # Check config for install_lancache setting, if true then check if lancache container is running and install it if not
+            install_lancache=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_lancache' | awk -F'=' '{print $2}')
+            if [ "$install_lancache" == "true" ]; then
+                # Check if docker-compose file for lancache exists, if it does check if lancache container is running and install it if not, if it is running pull latest image and recreate container
+                if [ -f "/opt/vdtg-rmm/docker-compose/lancache/docker-compose.yml" ]; then
+                    # Check if lancache container is running, if not start lancache container using docker-compose, if it is running pull latest image and recreate container
+                    if ! docker ps --format '{{.Names}}' | grep -q "vdtg-rmm-lancache"; then
+                        # Check if .env file exists in lancache docker-compose folder, if not copy .env.example to .env
+                        if [ ! -f "/opt/vdtg-rmm/docker-compose/lancache/.env" ]; then
+                            # Copy .env.example to .env
+                            cp /opt/vdtg-rmm/docker-compose/lancache/.env.example /opt/vdtg-rmm/docker-compose/lancache/.env
+                            
+                            # Prompt user to edit .env file with appropriate values before running the application
+                            echo "Please edit the .env file with appropriate values before running the application"
+
+                            # Set install_lancache to false in config file to prevent errors on next run
+                            sed -i 's/^\([[:space:]]*install_lancache[[:space:]]*=[[:space:]]*\).*/\1false/' /opt/vdtg-rmm/vdtg-rmm.config
+
+                            # Re-enable cron if it was enabled before updates
+                            if [ "$cron_enable" == "true" ]; then
+                                sed -i 's/^\([[:space:]]*cron_enable[[:space:]]*=[[:space:]]*\).*/\1true/' /opt/vdtg-rmm/vdtg-rmm.config
+                            fi
+
+                            # Exit the script to allow user to edit .env file
+                            exit
+                        fi
+                        # Start lancache container using docker-compose
+                        docker-compose -f /opt/vdtg-rmm/docker-compose/lancache/docker-compose.yml up -d
+                    else
+                        # Check if update_lancache setting is true, if it is true pull latest image and recreate container, if it is false do nothing
+                        update_lancache=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'update_lancache' | awk -F'=' '{print $2}')
+                        if [ "$update_lancache" == "true" ]; then
+                            # Pull latest image and recreate container
+                            docker-compose -f /opt/vdtg-rmm/docker-compose/lancache/docker-compose.yml pull
+                            docker-compose -f /opt/vdtg-rmm/docker-compose/lancache/docker-compose.yml up -d
+                        fi
+                    fi
+                fi
+            fi
+        fi    
+    fi
+
     # Re-enable cron if it was enabled before updates
     if [ "$cron_enable" == "true" ]; then
         sed -i 's/^\([[:space:]]*cron_enable[[:space:]]*=[[:space:]]*\).*/\1true/' /opt/vdtg-rmm/vdtg-rmm.config

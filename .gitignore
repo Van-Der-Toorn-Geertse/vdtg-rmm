@@ -1,1 +1,3 @@
 vdtg-rmm.config
+docker-compose/lancache/.env
+docker-data/*

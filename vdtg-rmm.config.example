@@ -14,3 +14,11 @@ cron_enable=true
 update_app=true
 # Auto reboot after updating OS
 update_reboot=false
+# Install Docker
+install_docker=false
+# Install Portainer
+install_portainer=false
+# Install Lancache
+install_lancache=false
+# Auto update Lancache
+update_lancache=false

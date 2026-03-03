@@ -1,0 +1,23 @@
+services:
+  dns:
+      image:lancachenet/lancache-dns:latest
+      name: vdtg-lancache-dns
+      container_name: vdtg-lancache-dns
+      env_file: .env
+      restart: unless-stopped
+      ports:
+        - ${DNS_BIND_IP}:53:53/tcp
+        - ${DNS_BIND_IP}:53:53/udp
+
+  monolithic:
+      image:lancachenet/monolithic:latest
+      name: vdtg-lancache-monolithic
+      container_name: vdtg-lancache-monolithic
+      env_file: .env
+      restart: unless-stopped
+      ports:
+        - ${CACHE_BIND_IP}:80:80/tcp
+        - ${CACHE_BIND_IP}:443:443/tcp
+      volumes:
+        - ${CACHE_ROOT}/cache:/data/cache
+        - ${CACHE_ROOT}/logs:/data/logs

@@ -74,14 +74,6 @@ if [ -d "/opt/vdtg-rmm" ]; then
         SRC_UBUNTU_SOURCES_FILE=""
     fi
 
-    # Copy sources.list if it exists and is different
-    if [ -n "$SRC_LIST_FILE" ] && [ -f "$SRC_LIST_FILE" ]; then
-        DST_LIST_FILE="/etc/apt/sources.list"
-        if [ ! -f "$DST_LIST_FILE" ] || ! cmp -s "$SRC_LIST_FILE" "$DST_LIST_FILE"; then
-            cp "$SRC_LIST_FILE" "$DST_LIST_FILE"
-        fi
-    fi
-
     # Copy ubuntu.sources if it exists and is different
     if [ -n "$SRC_UBUNTU_SOURCES_FILE" ] && [ -f "$SRC_UBUNTU_SOURCES_FILE" ]; then
         DST_UBUNTU_SOURCES_FILE="/etc/apt/sources.list.d/ubuntu.sources"
@@ -89,6 +81,19 @@ if [ -d "/opt/vdtg-rmm" ]; then
         mkdir -p /etc/apt/sources.list.d
         if [ ! -f "$DST_UBUNTU_SOURCES_FILE" ] || ! cmp -s "$SRC_UBUNTU_SOURCES_FILE" "$DST_UBUNTU_SOURCES_FILE"; then
             cp "$SRC_UBUNTU_SOURCES_FILE" "$DST_UBUNTU_SOURCES_FILE"
+        fi
+
+        # Remove sources.list if it exists to prevent conflicts with ubuntu.sources
+        if [ -f "/etc/apt/sources.list" ]; then
+            rm "/etc/apt/sources.list"
+        fi
+    else
+        # Copy sources.list if it exists and is different
+        if [ -n "$SRC_LIST_FILE" ] && [ -f "$SRC_LIST_FILE" ]; then
+            DST_LIST_FILE="/etc/apt/sources.list"
+            if [ ! -f "$DST_LIST_FILE" ] || ! cmp -s "$SRC_LIST_FILE" "$DST_LIST_FILE"; then
+                cp "$SRC_LIST_FILE" "$DST_LIST_FILE"
+            fi
         fi
     fi
 

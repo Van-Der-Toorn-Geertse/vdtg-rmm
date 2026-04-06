@@ -10,3 +10,7 @@ install_net-tools=true
 install_iputils_ping=true
 # Enable cron
 cron_enable=true
+# Install runescape-dragonwilds_dedicated-server
+install_runescape-dragonwilds_dedicated-server=false
+# Install steamcmd
+install_steamcmd=false

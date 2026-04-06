@@ -140,6 +140,74 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
+    install_steamcmd=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_steamcmd' | awk -F'=' '{print $2}')
+    if [ "$install_steamcmd" == "true" ]; then
+        if ! dpkg -l | grep -q steamcmd; then
+            apt install software-properties-common -y
+            dpkg --add-architecture i386
+            apt update
+            apt install steamcmd -y
+        fi
+    fi
+
+    install_runescape-dragonwilds_dedicated-server=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_runescape_dragonwilds_dedicated_server' | awk -F'=' '{print $2}')
+    if [ "$install_runescape_dragonwilds_dedicated_server" == "true" ]; then
+        if ! dpkg -l | grep -q runescape-dragonwilds-dedicated-server; then
+            
+            # Create dragonwilds user if not exists
+            if ! id -u dragonwilds >/dev/null 2>&1; then
+                useradd -m -s /bin/bash dragonwilds
+            fi
+
+            # Create necessary folders for dragonwilds user if not exists
+            if [ ! -d "/home/dragonwilds/rs_server" ]; then
+                mkdir -p /home/dragonwilds/rs_server
+                chown dragonwilds:dragonwilds /home/dragonwilds/rs_server
+            fi
+            if [ ! -d "/home/dragonwilds/dragonwilds_backups" ]; then
+                mkdir -p /home/dragonwilds/dragonwilds_backups
+                chown dragonwilds:dragonwilds /home/dragonwilds/dragonwilds_backups
+            fi
+
+            # Install SteamCMD if not already installed, but only if the steamcmd.sh file doesn't exist in the expected location.
+            if [ ! -f "/home/dragonwilds/steamcmd/steamcmd.sh" ]; then
+
+                # Create steamcmd folder in home directory of dragonwilds user and set ownership
+                mkdir -p /home/dragonwilds/steamcmd
+                chown -R dragonwilds:dragonwilds /home/dragonwilds
+
+                # Check if sudo is installed, if not install it
+                if ! dpkg -l | grep -q sudo; then
+                    apt install -y sudo
+                fi
+                
+                # Download and extract SteamCMD as the dragonwilds user to ensure correct permissions, then run it once to create necessary folders
+                sudo -u dragonwilds bash -c "cd /home/dragonwilds/steamcmd && wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
+                sudo -u dragonwilds bash -c "cd /home/dragonwilds/steamcmd && tar -xvzf steamcmd_linux.tar.gz"
+                sudo -u dragonwilds /home/dragonwilds/steamcmd/steamcmd.sh +quit
+
+                # Use SteamCMD to download the RuneScape Dragonwilds Dedicated Server files, install them in the correct folder with the correct user permissions
+                sudo -u dragonwilds /home/dragonwilds/steamcmd/steamcmd.sh +force_install_dir /home/dragonwilds/rs_server +login anonymous +app_update 4019830 +quit
+
+            fi
+
+            # Create systemd service for RuneScape Dragonwilds Dedicated Server, but only if it doesn't already exist. The service file is selected based on the detected OS and version to ensure compatibility.
+            SERVICE_SRC="/opt/vdtg-rmm/systemctl/${OS_ID}/${OS_VER}/runescape-dragonwilds_dedicated-server.service"
+            SERVICE_DST="/etc/systemd/system/runescape-dragonwilds_dedicated-server.service"
+            if [ -f "$SERVICE_SRC" ]; then
+                cp "$SERVICE_SRC" "$SERVICE_DST"
+                chown root:root "$SERVICE_DST"
+                chmod 644 "$SERVICE_DST"
+                systemctl daemon-reload
+                systemctl enable --now runescape-dragonwilds_dedicated-server.service
+                echo "RuneScape Dragonwilds Dedicated Server service installed and started successfully, please edit /home/dragonwilds/rs_server/RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini to configure the server and restart service."
+            else
+                echo "Service file for RuneScape Dragonwilds Dedicated Server not found for OS: $OS_ID version: $OS_VER. Please contact support to add compatibility for your OS version."
+            fi
+
+        fi
+    fi
+
     # Locale setup, first check if OS is not Proxmox
     if [ "$OS_ID" != "proxmox" ]; then
         locale=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'locale' | awk -F'=' '{print $2}')

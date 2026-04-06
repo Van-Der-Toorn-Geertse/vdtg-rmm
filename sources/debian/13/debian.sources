@@ -1,0 +1,11 @@
+Types: deb
+URIs: http://mirror.miruict.nl/debian
+Suites: trixie trixie-updates
+Components: contrib main non-free
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb
+URIs: http://mirror.miruict.nl/debian-security
+Suites: trixie-security
+Components: contrib main non-free
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg

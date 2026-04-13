@@ -1,0 +1,8 @@
+# Linux Mint hoofdrepository
+deb https://mirror.vdtg.nl/linuxmint gigi main upstream import backport
+
+# Debian repositories
+deb https://mirror.vdtg.nl/debian trixie main contrib non-free non-free-firmware
+deb https://mirror.vdtg.nl/debian trixie-updates main contrib non-free non-free-firmware
+deb https://mirror.vdtg.nl/debian-security trixie-security main contrib non-free non-free-firmware
+deb https://mirror.vdtg.nl/debian trixie-backports main contrib non-free non-free-firmware

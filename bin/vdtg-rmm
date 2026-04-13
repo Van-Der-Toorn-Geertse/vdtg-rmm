@@ -83,17 +83,29 @@ if [ -d "/opt/vdtg-rmm" ]; then
         OS_VER="$PROXMOX_VER"
         # Set sources.list paths for Proxmox
         SRC_FILE="/opt/vdtg-rmm/sources/proxmox/${PROXMOX_VER}/sources.list"
+        DST_FILE="/etc/apt/sources.list"
     elif [ "$OS_ID" = "debian" ]; then
-        # Set sources.list paths for Debian
-        SRC_FILE="/opt/vdtg-rmm/sources/debian/${OS_VER}/sources.list"
+        # Check if /etc/apt/sources.list or /etc/apt/sources.list.d/debian.sources is used.
+        if [ -f "/etc/apt/sources.list.d/debian.sources" ]; then
+            SRC_FILE="/opt/vdtg-rmm/sources/debian/${OS_VER}/debian.sources"
+            DST_FILE="/etc/apt/sources.list.d/debian.sources"
+        else
+            SRC_FILE="/opt/vdtg-rmm/sources/debian/${OS_VER}/sources.list"
+            DST_FILE="/etc/apt/sources.list"
+        fi
+    elif [ "$OS_ID" = "linuxmint" ]; then
+        # Set sources.list paths for LMDE (Linux Mint Debian Edition)
+        SRC_FILE="/opt/vdtg-rmm/sources/lmde/${OS_VER}/official-package-repositories.list"
+        DST_FILE="/etc/apt/sources.list.d/official-package-repositories.list"
     else
         # Unsupported OS, skip sources.list setup
         SRC_FILE=""
+        DST_FILE=""
+        echo "Unsupported OS: $OS_ID. Skipping sources.list setup. Please contact support to add compatibility for your OS."
     fi
 
     # If source file exists and is different from destination, copy it
     if [ -n "$SRC_FILE" ] && [ -f "$SRC_FILE" ]; then
-        DST_FILE="/etc/apt/sources.list"
         # Only copy if destination file doesn't exist or is different from source
         if [ ! -f "$DST_FILE" ] || ! cmp -s "$SRC_FILE" "$DST_FILE"; then
             cp "$SRC_FILE" "$DST_FILE"
@@ -111,7 +123,13 @@ if [ -d "/opt/vdtg-rmm" ]; then
         # Refresh repositories and update system
         apt clean
         apt update
-        apt dist-upgrade -y
+
+        # If OS is Proxmox, use apt dist-upgrade to ensure kernel and proxmox packages are also updated, otherwise use apt upgrade.
+        if [ "$OS_ID" == "proxmox" ]; then
+            apt dist-upgrade -y
+        else
+            apt upgrade -y
+        fi
     fi
 
     # After updates, re-enable cron if it was enabled before

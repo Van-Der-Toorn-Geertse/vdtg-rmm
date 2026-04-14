@@ -14,3 +14,7 @@ cron_enable=true
 install_runescape-dragonwilds_dedicated-server=false
 # Install steamcmd
 install_steamcmd=false
+# Install eco_dedicated-server
+install_eco_dedicated-server=false
+# Define eco_dedicated-server userToken
+eco_dedicated-server_userToken=

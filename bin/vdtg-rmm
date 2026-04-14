@@ -137,6 +137,31 @@ if [ -d "/opt/vdtg-rmm" ]; then
         sed -i 's/^\([[:space:]]*cron_enable[[:space:]]*=[[:space:]]*\).*/\1true/' /opt/vdtg-rmm/vdtg-rmm.config
     fi
 
+    # Locale setup, first check if OS is not Proxmox since Proxmox has its own locale settings and changing them can cause issues with the Proxmox web interface. If not Proxmox, check config for locale setting and install locales package if not already installed, then set system locale based on config value (nl or en).
+    if [ "$OS_ID" != "proxmox" ]; then
+        locale=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'locale' | awk -F'=' '{print $2}')
+        if [ -n "$locale" ]; then
+            if ! dpkg -l | grep -q "locales"; then
+                apt install -y locales
+            fi
+            if [ "$locale" == "nl" ]; then
+                # Uncomment nl_NL.UTF-8 UTF-8 in /etc/locale.gen if commented
+                sed -i 's/^# *\(nl_NL\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+
+                # Generate locale and update system locale settings
+                locale-gen nl_NL.UTF-8
+                update-locale LANG=nl_NL.UTF-8 LC_MESSAGES=POSIX
+            elif [ "$locale" == "en" ]; then
+                # Uncomment en_US.UTF-8 UTF-8 in /etc/locale.gen if commented
+                sed -i 's/^# *\(en_US\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+
+                # Generate locale and update system locale settings
+                locale-gen en_US.UTF-8
+                update-locale LANG=en_US.UTF-8 LC_MESSAGES=POSIX
+            fi
+        fi
+    fi
+
     install_git=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_git' | awk -F'=' '{print $2}')
     if [ "$install_git" == "true" ]; then
         if ! dpkg -l | grep -q git; then
@@ -161,10 +186,30 @@ if [ -d "/opt/vdtg-rmm" ]; then
     install_steamcmd=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_steamcmd' | awk -F'=' '{print $2}')
     if [ "$install_steamcmd" == "true" ]; then
         if ! dpkg -l | grep -q steamcmd; then
-            apt install software-properties-common -y
-            dpkg --add-architecture i386
-            apt update
-            apt install steamcmd -y
+            # Install required 32-bit libraries for SteamCMD
+            if ! dpkg -l | grep -q lib32gcc-s1; then
+                apt install -y lib32gcc-s1
+            fi
+
+            # Create steamcmd user if not exists
+            if ! id -u steamcmd >/dev/null 2>&1; then
+                useradd -m -s /bin/bash steamcmd
+            fi
+
+            # Create steamcmd folder in home directory of steamcmd user and set ownership
+            mkdir -p /home/steamcmd/steamcmd
+            chown -R steamcmd:steamcmd /home/steamcmd
+
+            # Check if sudo is installed, if not install it
+            if ! dpkg -l | grep -q sudo; then
+                apt install -y sudo
+            fi
+
+            # Download and extract SteamCMD as the steamcmd user to ensure correct permissions, then run it once to create necessary folders
+            sudo -u steamcmd bash -c "cd /home/steamcmd/steamcmd && wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
+            sudo -u steamcmd bash -c "cd /home/steamcmd/steamcmd && tar -xvzf steamcmd_linux.tar.gz"
+            sudo -u steamcmd /home/steamcmd/steamcmd/steamcmd.sh +quit
+
         fi
     fi
 
@@ -189,6 +234,11 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
             # Install SteamCMD if not already installed, but only if the steamcmd.sh file doesn't exist in the expected location.
             if [ ! -f "/home/dragonwilds/steamcmd/steamcmd.sh" ]; then
+
+                # Install required 32-bit libraries for SteamCMD
+                if ! dpkg -l | grep -q lib32gcc-s1; then
+                    apt install -y lib32gcc-s1
+                fi
 
                 # Create steamcmd folder in home directory of dragonwilds user and set ownership
                 mkdir -p /home/dragonwilds/steamcmd
@@ -217,8 +267,8 @@ if [ -d "/opt/vdtg-rmm" ]; then
                 chown root:root "$SERVICE_DST"
                 chmod 644 "$SERVICE_DST"
                 systemctl daemon-reload
-                systemctl enable --now runescape-dragonwilds_dedicated-server.service
-                echo "RuneScape Dragonwilds Dedicated Server service installed and started successfully, please edit /home/dragonwilds/rs_server/RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini to configure the server and restart service."
+                systemctl enable runescape-dragonwilds-dedicated-server
+                echo "RuneScape Dragonwilds Dedicated Server service installed, please edit /home/dragonwilds/rs_server/RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini to configure the server and then start the service with: systemctl start runescape-dragonwilds-dedicated-server"
             else
                 echo "Service file for RuneScape Dragonwilds Dedicated Server not found for OS: $OS_ID version: $OS_VER. Please contact support to add compatibility for your OS version."
             fi
@@ -226,16 +276,73 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
-    # Locale setup, first check if OS is not Proxmox
-    if [ "$OS_ID" != "proxmox" ]; then
-        locale=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'locale' | awk -F'=' '{print $2}')
-        if [ -n "$locale" ]; then
-            if ! dpkg -l | grep -q "locales"; then
-                apt install -y locales
+    install_eco_dedicated-server=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_eco_dedicated_server' | awk -F'=' '{print $2}')
+    if [ "$install_eco_dedicated-server" == "true" ]; then
+        if ! dpkg -l | grep -q eco-dedicated-server; then
+
+            # Create eco user if not exists
+            if ! id -u eco >/dev/null 2>&1; then
+                useradd -m -s /bin/bash eco
             fi
-            if [ "$locale" == "nl" ]; then
-                update-locale LANG=nl_NL.UTF-8 LC_MESSAGES=POSIX
+
+            # Create necessary folders for eco user if not exists
+            if [ ! -d "/home/eco/eco_server" ]; then
+                mkdir -p /home/eco/eco_server
+                chown eco:eco /home/eco/eco_server
             fi
+
+            # Install SteamCMD if not already installed, but only if the steamcmd.sh file doesn't exist in the expected location.
+            if [ ! -f "/home/eco/steamcmd/steamcmd.sh" ]; then
+
+                # Install required 32-bit libraries for SteamCMD
+                if ! dpkg -l | grep -q lib32gcc-s1; then
+                    apt install -y lib32gcc-s1
+                fi
+
+                # Create steamcmd folder in home directory of eco user and set ownership
+                mkdir -p /home/eco/steamcmd
+                chown -R eco:eco /home/eco
+
+                # Check if sudo is installed, if not install it
+                if ! dpkg -l | grep -q sudo; then
+                    apt install -y sudo
+                fi
+                
+                # Download and extract SteamCMD as the eco user to ensure correct permissions, then run it once to create necessary folders
+                sudo -u eco bash -c "cd /home/eco/steamcmd && wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
+                sudo -u eco bash -c "cd /home/eco/steamcmd && tar -xvzf steamcmd_linux.tar.gz"
+                sudo -u eco /home/eco/steamcmd/steamcmd.sh +quit
+
+                # Use SteamCMD to download the ECO Dedicated Server files, install them in the correct folder with the correct user permissions
+                sudo -u eco /home/eco/steamcmd/steamcmd.sh +force_install_dir /home/eco/eco_server +login anonymous +app_update 739590 -beta default validate +quit
+
+            fi
+
+            # Create systemd service for ECO Dedicated Server, but only if it doesn't already exist. The service file is selected based on the detected OS and version to ensure compatibility.
+            SERVICE_SRC="/opt/vdtg-rmm/systemctl/${OS_ID}/${OS_VER}/eco-dedicated-server.service"
+            SERVICE_DST="/etc/systemd/system/eco-dedicated-server.service"
+            if [ -f "$SERVICE_SRC" ]; then
+                cp "$SERVICE_SRC" "$SERVICE_DST"
+                chown root:root "$SERVICE_DST"
+                chmod 644 "$SERVICE_DST"
+                systemctl daemon-reload
+                systemctl enable eco-dedicated-server
+                echo "ECO Dedicated Server service installed, please edit /home/eco/eco_server/Configs/* to configure the server and then start the service with: systemctl start eco-dedicated-server"
+
+                # Inject userToken direct in ExecStart als deze in de config staat
+                eco_userToken=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i '^eco_dedicated-server_userToken=' | awk -F'=' '{print $2}')
+                if [ -n "$eco_userToken" ]; then
+                    # Escape special characters for sed
+                    escaped_token=$(printf '%s\n' "$eco_userToken" | sed -e 's/[\/&]/\\&/g')
+                    sed -i "s|^ExecStart=/home/eco/eco_server/EcoServer.*|ExecStart=/home/eco/eco_server/EcoServer -userToken=$escaped_token|" "$SERVICE_DST"
+                fi
+            fi
+
+            # Install required libgdiplus for ECO Dedicated Server
+            if ! dpkg -l | grep -q libgdiplus; then
+                apt install -y libgdiplus
+            fi
+
         fi
     fi
 

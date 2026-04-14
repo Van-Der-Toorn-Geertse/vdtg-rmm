@@ -1,0 +1,35 @@
+[Unit]
+Description=Eco Dedicated Server
+# Start pas als netwerk online is
+Wants=network-online.target
+# Start na netwerk
+After=network-online.target
+
+[Service]
+# Simpel proces, geen forking
+Type=simple
+# Draai als gebruiker eco
+User=eco
+# Draai in groep dragonwilds
+Group=eco
+
+# .NET bundle extract directory zoals aanbevolen door Eco
+Environment="DOTNET_BUNDLE_EXTRACT_BASE_DIR=/home/eco/.net"
+
+# Werkdirectory voor de service
+WorkingDirectory=/home/eco/eco_server
+
+# Update de server via SteamCMD
+ExecStartPre=/home/eco/steamcmd/steamcmd.sh +force_install_dir /home/eco/eco_server +login anonymous +app_update 739590 +quit
+
+# Start de dedicated server
+ExecStart=/home/eco/eco_server/EcoServer -userToken=
+
+# Herstart altijd bij falen, wacht 15 seconden
+Restart=always
+RestartSec=15
+
+# ---[Install]---
+[Install]
+# Start automatisch in multi-user mode
+WantedBy=multi-user.target

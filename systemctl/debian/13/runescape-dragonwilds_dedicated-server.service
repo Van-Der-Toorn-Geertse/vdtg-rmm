@@ -16,17 +16,8 @@ Group=dragonwilds
 # Werkdirectory voor de service
 WorkingDirectory=/home/dragonwilds/rs_server
 
-# Maak backup-directory aan (faalt niet als deze al bestaat)
-ExecStartPre=/bin/mkdir -p /home/dragonwilds/dragonwilds_backups
-
-# Maak een backup van het configuratiebestand (faalt niet als bestand ontbreekt)
-ExecStartPre=/bin/bash -c "cp /home/dragonwilds/rs_server/RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini /home/dragonwilds/dragonwilds_backups/DedicatedServer.ini.bak || true"
-
 # Update de server via SteamCMD
 ExecStartPre=/home/dragonwilds/steamcmd/steamcmd.sh +force_install_dir /home/dragonwilds/rs_server +login anonymous +app_update 4019830 +quit
-
-# Zet de backup terug naar de originele locatie (faalt niet als bestand ontbreekt)
-ExecStartPre=/bin/bash -c "cp /home/dragonwilds/dragonwilds_backups/DedicatedServer.ini.bak /home/dragonwilds/rs_server/RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini || true"
 
 # Zorg dat het startscript uitvoerbaar is
 ExecStartPre=/bin/bash -c "chmod +x /home/dragonwilds/rs_server/RSDragonwildsServer.sh"

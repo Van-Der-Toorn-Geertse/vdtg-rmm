@@ -169,7 +169,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
-    install_net_tools=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_net_tools' | awk -F'=' '{print $2}')
+    install_net_tools=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install-net-tools' | awk -F'=' '{print $2}')
     if [ "$install_net_tools" == "true" ]; then
         if ! dpkg -l | grep -q net-tools; then
             apt install -y net-tools
@@ -213,8 +213,8 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
-    install_runescape-dragonwilds_dedicated-server=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_runescape_dragonwilds_dedicated_server' | awk -F'=' '{print $2}')
-    if [ "$install_runescape_dragonwilds_dedicated_server" == "true" ]; then
+    install_runescape-dragonwilds_dedicated-server=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_runescape-dragonwilds_dedicated-server' | awk -F'=' '{print $2}')
+    if [ "$install_runescape-dragonwilds_dedicated-server" == "true" ]; then
         if ! dpkg -l | grep -q runescape-dragonwilds-dedicated-server; then
             
             # Create dragonwilds user if not exists

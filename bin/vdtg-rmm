@@ -457,6 +457,14 @@ if [ -d "/opt/vdtg-rmm" ]; then
             apt update
             apt install code -y
         fi
+    fi
+
+    install_remmina=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_remmina' | awk -F'=' '{print $2}')
+    if [ "$install_remmina" == "true" ]; then
+        if ! dpkg -l | grep -q remmina; then
+            apt install remmina remmina-plugin-rdp -y
+        fi
+    fi
 
     # Check if reboot is required and if so, check config for reboot_auto setting. If reboot_auto is true, remove reboot-required file and reboot system, otherwise display message that a reboot is required.
     if [ -f "/opt/vdtg-rmm/reboot-required" ]; then

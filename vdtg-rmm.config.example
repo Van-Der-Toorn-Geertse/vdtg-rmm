@@ -28,3 +28,5 @@ install_zoho_assist_remote_support=false
 reboot_auto=false
 # Install Microsoft VSCode
 install_vscode=false
+# Install Remmina (with MSRDP support)
+install_remmina=false

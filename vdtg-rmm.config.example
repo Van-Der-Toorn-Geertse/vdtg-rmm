@@ -5,16 +5,16 @@ update_auto=false
 # Install git
 install_git=true
 # Install net-tools
-install_net-tools=true
+install_net_tools=true
 # Install iputils_ping
 install_iputils_ping=true
 # Enable cron
 cron_enable=true
 # Install runescape-dragonwilds_dedicated-server
-install_runescape-dragonwilds_dedicated-server=false
+install_runescape_dragonwilds_dedicated_server=false
 # Install steamcmd
 install_steamcmd=false
 # Install eco_dedicated-server
-install_eco_dedicated-server=false
+install_eco_dedicated_server=false
 # Define eco_dedicated-server userToken
-eco_dedicated-server_userToken=
+eco_dedicated_server_userToken=

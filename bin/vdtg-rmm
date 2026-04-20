@@ -169,7 +169,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
-    install_net_tools=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install-net-tools' | awk -F'=' '{print $2}')
+    install_net_tools=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_net_tools' | awk -F'=' '{print $2}')
     if [ "$install_net_tools" == "true" ]; then
         if ! dpkg -l | grep -q net-tools; then
             apt install -y net-tools
@@ -213,8 +213,8 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
-    install_runescape-dragonwilds_dedicated-server=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_runescape-dragonwilds_dedicated-server' | awk -F'=' '{print $2}')
-    if [ "$install_runescape-dragonwilds_dedicated-server" == "true" ]; then
+    install_runescape_dragonwilds_dedicated_server=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_runescape_dragonwilds_dedicated_server' | awk -F'=' '{print $2}')
+    if [ "$install_runescape_dragonwilds_dedicated_server" == "true" ]; then
         if ! dpkg -l | grep -q runescape-dragonwilds-dedicated-server; then
             
             # Create dragonwilds user if not exists
@@ -276,8 +276,8 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
-    install_eco_dedicated-server=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_eco_dedicated_server' | awk -F'=' '{print $2}')
-    if [ "$install_eco_dedicated-server" == "true" ]; then
+    install_eco_dedicated_server=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_eco_dedicated_server' | awk -F'=' '{print $2}')
+    if [ "$install_eco_dedicated_server" == "true" ]; then
         if ! dpkg -l | grep -q eco-dedicated-server; then
 
             # Create eco user if not exists
@@ -330,7 +330,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
                 echo "ECO Dedicated Server service installed, please edit /home/eco/eco_server/Configs/* to configure the server and then start the service with: systemctl start eco-dedicated-server"
 
                 # Inject userToken direct in ExecStart als deze in de config staat
-                eco_userToken=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i '^eco_dedicated-server_userToken=' | awk -F'=' '{print $2}')
+                eco_userToken=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i '^eco_dedicated_server_userToken=' | awk -F'=' '{print $2}')
                 if [ -n "$eco_userToken" ]; then
                     # Escape special characters for sed
                     escaped_token=$(printf '%s\n' "$eco_userToken" | sed -e 's/[\/&]/\\&/g')

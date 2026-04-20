@@ -414,7 +414,6 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
     fi
 
-
     install_zoho_assist_remote_support=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_zoho_assist_remote_support' | awk -F'=' '{print $2}')
     if [ "$install_zoho_assist_remote_support" == "true" ]; then
         if [ ! -f "/usr/share/applications/zoho-assist.desktop" ]; then
@@ -443,6 +442,21 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
         fi
     fi
+
+    install_vscode=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_vscode' | awk -F'=' '{print $2}')
+    if [ "$install_vscode" == "true" ]; then
+        if ! dpkg -l | grep -q code; then
+            # Install dependencies for Visual Studio Code
+            apt install wget gpg -y
+
+            # Download and install Microsoft GPG key and repository for Visual Studio Code
+            wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://mirror.vdtg.nl/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list
+
+            # Update repositories and install Visual Studio Code
+            apt update
+            apt install code -y
+        fi
 
     # Check if reboot is required and if so, check config for reboot_auto setting. If reboot_auto is true, remove reboot-required file and reboot system, otherwise display message that a reboot is required.
     if [ -f "/opt/vdtg-rmm/reboot-required" ]; then

@@ -26,3 +26,5 @@ intel_modesetting=false
 install_zoho_assist_remote_support=false
 # Auto reboot if needed
 reboot_auto=false
+# Install Microsoft VSCode
+install_vscode=false

@@ -3,3 +3,6 @@ vdtg-rmm.config
 
 # Ignore the applications directory
 applications/
+
+# Ignore the reboot-required file
+reboot-required

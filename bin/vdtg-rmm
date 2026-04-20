@@ -144,20 +144,31 @@ if [ -d "/opt/vdtg-rmm" ]; then
             if ! dpkg -l | grep -q "locales"; then
                 apt install -y locales
             fi
+            # Bepaal gewenste locale waarden
             if [ "$locale" == "nl" ]; then
-                # Uncomment nl_NL.UTF-8 UTF-8 in /etc/locale.gen if commented
+                desired_LANG="nl_NL.UTF-8"
+                desired_LC_MESSAGES="nl_NL.UTF-8"
+                # Uncomment nl_NL.UTF-8 UTF-8 in /etc/locale.gen indien nodig
                 sed -i 's/^# *\(nl_NL\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
-
-                # Generate locale and update system locale settings
-                locale-gen nl_NL.UTF-8
-                update-locale LANG=nl_NL.UTF-8 LC_MESSAGES=POSIX
             elif [ "$locale" == "en" ]; then
-                # Uncomment en_US.UTF-8 UTF-8 in /etc/locale.gen if commented
+                desired_LANG="en_US.UTF-8"
+                desired_LC_MESSAGES="POSIX"
+                # Uncomment en_US.UTF-8 UTF-8 in /etc/locale.gen indien nodig
                 sed -i 's/^# *\(en_US\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+            else
+                desired_LANG=""
+                desired_LC_MESSAGES=""
+            fi
 
-                # Generate locale and update system locale settings
-                locale-gen en_US.UTF-8
-                update-locale LANG=en_US.UTF-8 LC_MESSAGES=POSIX
+            # Huidige locale ophalen
+            current_LANG=$(locale | grep '^LANG=' | awk -F'=' '{print $2}')
+            current_LC_MESSAGES=$(locale | grep '^LC_MESSAGES=' | awk -F'=' '{print $2}')
+
+            # Alleen wijzigen als huidig anders is dan gewenst
+            if [ -n "$desired_LANG" ] && [ "$current_LANG" != "$desired_LANG" -o "$current_LC_MESSAGES" != "$desired_LC_MESSAGES" ]; then
+                update-locale LANG=$desired_LANG LC_MESSAGES=$desired_LC_MESSAGES
+                locale-gen
+                touch /opt/vdtg-rmm/reboot-required
             fi
         fi
     fi
@@ -372,6 +383,17 @@ if [ -d "/opt/vdtg-rmm" ]; then
             # Update the desktop database to recognize the new application
             update-desktop-database
 
+        fi
+    fi
+
+    # Check if reboot is required and if so, check config for reboot_auto setting. If reboot_auto is true, remove reboot-required file and reboot system, otherwise display message that a reboot is required.
+    if [ -f "/opt/vdtg-rmm/reboot-required" ]; then
+        reboot_auto=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'reboot_auto' | awk -F'=' '{print $2}')
+        if [ "$reboot_auto" == "true" ]; then
+            rm /opt/vdtg-rmm/reboot-required
+            reboot
+        else
+            echo "A reboot is required to complete the installation of updates and/or locale changes. Please reboot the system as soon as possible to ensure optimal performance and stability."
         fi
     fi
 

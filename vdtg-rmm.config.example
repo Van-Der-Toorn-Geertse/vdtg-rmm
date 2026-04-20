@@ -20,3 +20,5 @@ install_eco_dedicated_server=false
 eco_dedicated_server_userToken=
 # Install Zoho Assist Remote Support
 install_zoho_assist_remote_support=false
+# Auto reboot if needed
+reboot_auto=false

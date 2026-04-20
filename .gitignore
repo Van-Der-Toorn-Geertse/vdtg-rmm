@@ -6,3 +6,6 @@ applications/
 
 # Ignore the reboot-required file
 reboot-required
+
+# Ignore the displaylink-debian directory
+displaylink-debian/

@@ -357,6 +357,64 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
+    install_displaylink_driver=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_displaylink_driver' | awk -F'=' '{print $2}')
+    if [ "$install_displaylink_driver" == "true" ]; then
+        if [ ! -d "/opt/vdtg-rmm/displaylink-debian" ]; then
+            
+            # Install dependencies
+            apt install unzip dkms lsb-release linux-headers-$(uname -r) linux-source libdrm-dev -y
+
+            # Clone the displaylink-debian repository
+            git clone https://github.com/AdnanHodzic/displaylink-debian.git /opt/vdtg-rmm/displaylink-debian
+
+            # Make the install script non-interactive by automatically accepting installation of missing dependencies, but if a dependency is missing, display message and abort installation instead of trying to install it. This is to prevent issues with apt-get install hanging or asking for user input during the installation process.
+            sed -i '/read -p "\$dep not found! Install\? \[Y\/n\] " response/,/if ! apt-get install \$dep/{/read -p/d;/response=/d;/if ! apt-get install \$dep/c\\t\t\techo "$dep not found! Aborting."\\n\t\t\texit 1}' /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh
+
+            # Make the install script non-interactive by automatically accepting the license agreement
+            sed -i '/echo -en "\\nPlease read the Software License Agreement/,/read ACCEPT/ { /echo -en/d; /read ACCEPT/c\\tACCEPT="y" }' /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh
+
+            # Make the install script non-interactive by skipping the reboot prompt
+            sed -i '/^setup_complete()/,/^}/c\\\nsetup_complete() {\n  echo "Reboot required to apply changes. Please reboot manually."\n}\n' /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh
+
+            # Make the install script executable
+            chmod +x /opt/vdtg-rmm/displaylink-debian/displaylink-debian
+
+            # Run the install script
+            sudo /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh --install
+
+            touch /opt/vdtg-rmm/reboot-required
+
+            # Set intel_modesetting to true in vdtg-rmm.config to ensure optimal performance and compatibility with DisplayLink drivers, but only if it is not already set to true.
+            intel_modesetting=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'intel_modesetting' | awk -F'=' '{print $2}')
+            if [ "$intel_modesetting" != "true" ]; then
+                sed -i 's/^\([[:space:]]*intel_modesetting[[:space:]]*=[[:space:]]*\).*/\1true/' /opt/vdtg-rmm/vdtg-rmm.config
+            fi
+
+        fi
+    fi
+
+    intel_modesetting=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'intel_modesetting' | awk -F'=' '{print $2}')
+    if [ "$intel_modesetting" == "true" ]; then
+        
+        # If the 20-displaylink.conf file doesn't exist or doesn't contain the correct Driver "modesetting" line, create/overwrite the file with the correct configuration to ensure optimal performance and compatibility with DisplayLink drivers.
+        if [ ! -f "/etc/X11/xorg.conf.d/20-displaylink.conf" ] || ! grep -q 'Driver "modesetting"' /etc/X11/xorg.conf.d/20-displaylink.conf; then
+            mkdir -p /etc/X11/xorg.conf.d
+            echo 'Section "Device"' > /etc/X11/xorg.conf.d/20-displaylink.conf
+            echo '    Identifier "Intel Graphics"' >> /etc/X11/xorg.conf.d/20-displaylink.conf
+            echo '    Driver "modesetting"' >> /etc/X11/xorg.conf.d/20-displaylink.conf
+            echo 'EndSection' >> /etc/X11/xorg.conf.d/20-displaylink.conf
+        fi
+
+        # If the xserver-xorg-video-intel package is installed, remove it to prevent conflicts with the modesetting driver and ensure optimal performance and compatibility with DisplayLink drivers.
+        if dpkg -l | grep -q xserver-xorg-video-intel; then
+            apt remove xserver-xorg-video-intel -y
+        fi
+
+        touch /opt/vdtg-rmm/reboot-required
+
+    fi
+
+
     install_zoho_assist_remote_support=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_zoho_assist_remote_support' | awk -F'=' '{print $2}')
     if [ "$install_zoho_assist_remote_support" == "true" ]; then
         if [ ! -f "/usr/share/applications/zoho-assist.desktop" ]; then

@@ -18,6 +18,10 @@ install_steamcmd=false
 install_eco_dedicated_server=false
 # Define eco_dedicated-server userToken
 eco_dedicated_server_userToken=
+# Install DisplayLink driver
+install_displaylink_driver=false
+# Set Intel driver to modesetting
+intel_modesetting=false
 # Install Zoho Assist Remote Support
 install_zoho_assist_remote_support=false
 # Auto reboot if needed

@@ -479,9 +479,29 @@ if [ -d "/opt/vdtg-rmm" ]; then
     fi
 
     if [ "$OS_ID" = "linuxmint" ]; then
-        if ! dpkg -l | grep -q mint-meta-codecs; then
-            apt install mint-meta-codecs -y
+
+        install_lmde_multimedia_support=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_lmde_multimedia_support' | awk -F'=' '{print $2}')
+        if [ "$install_lmde_multimedia_support" == "true" ]; then
+            if ! dpkg -l | grep -q mint-meta-codecs; then
+                apt install mint-meta-codecs -y
+            fi
         fi
+
+        ufw_enable=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'ufw_enable' | awk -F'=' '{print $2}')
+        if [ "$ufw_enable" == "true" ]; then
+            
+            if ! dpkg -l | grep -q ufw; then
+                apt install ufw -y
+            fi
+
+            ufw enable
+
+        elif [ "$ufw_enable" == "false" ]; then
+            if dpkg -l | grep -q ufw; then
+                ufw disable
+            fi
+        fi
+
     fi
 
 else

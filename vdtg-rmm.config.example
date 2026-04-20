@@ -30,3 +30,7 @@ reboot_auto=false
 install_vscode=false
 # Install Remmina (with MSRDP support)
 install_remmina=false
+# Install Linux Mint Multimedia Support (if on LMDE)
+install_lmde_multimedia_support=true
+# Enable UFW (firewall)
+ufw_enable=true

@@ -1,1 +1,5 @@
+# Ignore the vdtg-rmm.config file, only the example file should be tracked by git because it contains sensitive information
 vdtg-rmm.config
+
+# Ignore the applications directory
+applications/

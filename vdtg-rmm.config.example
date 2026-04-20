@@ -18,3 +18,5 @@ install_steamcmd=false
 install_eco_dedicated_server=false
 # Define eco_dedicated-server userToken
 eco_dedicated_server_userToken=
+# Install Zoho Assist Remote Support
+install_zoho_assist_remote_support=false

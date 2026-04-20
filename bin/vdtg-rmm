@@ -346,6 +346,35 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
+    install_zoho_assist_remote_support=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_zoho_assist_remote_support' | awk -F'=' '{print $2}')
+    if [ "$install_zoho_assist_remote_support" == "true" ]; then
+        if [ ! -f "/usr/share/applications/zoho-assist.desktop" ]; then
+
+            # Create applications folder if it doesn't exist
+            if [ ! -d "/opt/vdtg-rmm/applications" ]; then
+                mkdir -p /opt/vdtg-rmm/applications
+            fi
+
+            # Install dependencies for Zoho Assist Remote Support
+            apt install wget fuse -y
+
+            # Download and install Zoho Assist Remote Support
+            wget -O /opt/vdtg-rmm/applications/ZohoAssist.AppImage https://downloads.zohocdn.com/assist-desktop/zoho-assist-desktop-x64.AppImage
+
+            # Make the AppImage executable
+            chmod +x /opt/vdtg-rmm/applications/ZohoAssist.AppImage
+
+            # Create desktop entry for Zoho Assist Remote Support
+            cp /opt/vdtg-rmm/applications/zoho-assist.desktop /usr/share/applications/zoho-assist.desktop
+            chown root:root /usr/share/applications/zoho-assist.desktop
+            chmod 644 /usr/share/applications/zoho-assist.desktop
+            
+            # Update the desktop database to recognize the new application
+            update-desktop-database
+
+        fi
+    fi
+
 else
     echo "Application not installed at /opt/vdtg-rmm. Please install application in the correct folder."
     exit

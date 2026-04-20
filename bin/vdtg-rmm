@@ -473,7 +473,14 @@ if [ -d "/opt/vdtg-rmm" ]; then
             rm /opt/vdtg-rmm/reboot-required
             reboot
         else
+            rm /opt/vdtg-rmm/reboot-required
             echo "A reboot is required to complete the installation of updates and/or locale changes. Please reboot the system as soon as possible to ensure optimal performance and stability."
+        fi
+    fi
+
+    if [ "$OS_ID" = "linuxmint" ]; then
+        if ! dpkg -l | grep -q mint-meta-codecs; then
+            apt install mint-meta-codecs -y
         fi
     fi
 

@@ -36,3 +36,5 @@ install_lmde_multimedia_support=true
 ufw_enable=true
 # Install Spotify Client
 install_spotify_client=true
+# Install Linux Mint Language Packs (if on LMDE)
+install_lmde_language_packs=true

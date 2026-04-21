@@ -502,6 +502,29 @@ if [ -d "/opt/vdtg-rmm" ]; then
             fi
         fi
 
+        install_lmde_language_packs=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_lmde_language_packs' | awk -F'=' '{print $2}')
+        if [ "$install_lmde_language_packs" == "true" ]; then
+
+            locale=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'locale' | awk -F'=' '{print $2}')
+            if [ "$locale" == "nl" ]; then
+
+                if ! dpkg -l | grep -q libreoffice-help-nl; then
+                    apt install libreoffice-help-nl -y
+                fi
+                if ! dpkg -l | grep -q hyphen-nl; then
+                    apt install hyphen-nl -y
+                fi
+                if ! dpkg -l | grep -q hunspell-nl; then
+                    apt install hunspell-nl -y
+                fi
+                if ! dpkg -l | grep -q wdutch; then
+                    apt install wdutch -y
+                fi
+
+            fi
+            
+        fi
+
     fi
 
     install_spotify_client=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_spotify_client' | awk -F'=' '{print $2}')

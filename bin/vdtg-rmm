@@ -504,6 +504,34 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
     fi
 
+    install_spotify_client=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_spotify_client' | awk -F'=' '{print $2}')
+    if [ "$install_spotify_client" == "true" ]; then
+        if ! dpkg -l | grep -q spotify-client; then
+            
+            # Check if dependencies for Spotify client are installed, else install.
+            if ! dpkg -l | grep -q apt-transport-https; then
+                apt install -y apt-transport-https
+            fi
+            if ! dpkg -l | grep -q ca-certificates; then
+                apt install -y ca-certificates
+            fi
+            if ! dpkg -l | grep -q wget; then
+                apt install -y wget
+            fi
+            if ! dpkg -l | grep -q gpg; then
+                apt install -y gpg
+            fi
+
+            # Download and install Spotify GPG key and repository
+            wget -qO- https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.asc | gpg --dearmor > /usr/share/keyrings/spotify.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/spotify.gpg] https://mirror.vdtg.nl/spotify stable non-free" > /etc/apt/sources.list.d/spotify.list
+
+            # Update repositories and install Spotify client
+            apt update
+            apt install spotify-client -y
+        fi
+    fi
+
 else
     echo "Application not installed at /opt/vdtg-rmm. Please install application in the correct folder."
     exit

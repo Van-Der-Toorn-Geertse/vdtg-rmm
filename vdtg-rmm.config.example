@@ -34,3 +34,5 @@ install_remmina=false
 install_lmde_multimedia_support=true
 # Enable UFW (firewall)
 ufw_enable=true
+# Install Spotify Client
+install_spotify_client=true

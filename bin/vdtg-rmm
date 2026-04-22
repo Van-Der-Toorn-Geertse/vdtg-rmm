@@ -555,6 +555,13 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
+    install_filezilla_client=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_filezilla_client' | awk -F'=' '{print $2}')
+    if [ "$install_filezilla_client" == "true" ]; then
+        if ! dpkg -l | grep -q filezilla; then
+            apt install filezilla -y
+        fi
+    fi
+
 else
     echo "Application not installed at /opt/vdtg-rmm. Please install application in the correct folder."
     exit

@@ -40,3 +40,5 @@ install_spotify_client=true
 install_lmde_language_packs=true
 # Install FileZilla Client
 install_filezilla_client=true
+# Install ckb-next (Corsair iCUE drivers)
+install_ckb_next=false

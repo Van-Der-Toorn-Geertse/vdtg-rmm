@@ -362,7 +362,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
         if [ ! -d "/opt/vdtg-rmm/displaylink-debian" ]; then
             
             # Install dependencies
-            apt install unzip dkms lsb-release linux-headers-$(uname -r) linux-source libdrm-dev -y
+            apt install -y unzip dkms lsb-release linux-headers-$(uname -r) linux-source libdrm-dev
 
             # Clone the displaylink-debian repository
             git clone https://github.com/AdnanHodzic/displaylink-debian.git /opt/vdtg-rmm/displaylink-debian
@@ -424,7 +424,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
             fi
 
             # Install dependencies for Zoho Assist Remote Support
-            apt install wget fuse -y
+            apt install -y wget fuse
 
             # Download and install Zoho Assist Remote Support
             wget -O /opt/vdtg-rmm/applications/ZohoAssist.AppImage https://downloads.zohocdn.com/assist-desktop/zoho-assist-desktop-x64.AppImage
@@ -447,7 +447,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
     if [ "$install_vscode" == "true" ]; then
         if ! dpkg -l | grep -q code; then
             # Install dependencies for Visual Studio Code
-            apt install wget gpg -y
+            apt install -y wget gpg
 
             # Download and install Microsoft GPG key and repository for Visual Studio Code
             wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft.gpg
@@ -455,26 +455,14 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
             # Update repositories and install Visual Studio Code
             apt update
-            apt install code -y
+            apt install -y code
         fi
     fi
 
     install_remmina=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_remmina' | awk -F'=' '{print $2}')
     if [ "$install_remmina" == "true" ]; then
         if ! dpkg -l | grep -q remmina; then
-            apt install remmina remmina-plugin-rdp -y
-        fi
-    fi
-
-    # Check if reboot is required and if so, check config for reboot_auto setting. If reboot_auto is true, remove reboot-required file and reboot system, otherwise display message that a reboot is required.
-    if [ -f "/opt/vdtg-rmm/reboot-required" ]; then
-        reboot_auto=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'reboot_auto' | awk -F'=' '{print $2}')
-        if [ "$reboot_auto" == "true" ]; then
-            rm /opt/vdtg-rmm/reboot-required
-            reboot
-        else
-            rm /opt/vdtg-rmm/reboot-required
-            echo "A reboot is required to complete the installation of updates and/or locale changes. Please reboot the system as soon as possible to ensure optimal performance and stability."
+            apt install -y remmina remmina-plugin-rdp
         fi
     fi
 
@@ -483,7 +471,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
         install_lmde_multimedia_support=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_lmde_multimedia_support' | awk -F'=' '{print $2}')
         if [ "$install_lmde_multimedia_support" == "true" ]; then
             if ! dpkg -l | grep -q mint-meta-codecs; then
-                apt install mint-meta-codecs -y
+                apt install -y mint-meta-codecs
             fi
         fi
 
@@ -491,7 +479,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
         if [ "$ufw_enable" == "true" ]; then
             
             if ! dpkg -l | grep -q ufw; then
-                apt install ufw -y
+                apt install -y ufw
             fi
 
             ufw enable
@@ -509,16 +497,16 @@ if [ -d "/opt/vdtg-rmm" ]; then
             if [ "$locale" == "nl" ]; then
 
                 if ! dpkg -l | grep -q libreoffice-help-nl; then
-                    apt install libreoffice-help-nl -y
+                    apt install -y libreoffice-help-nl
                 fi
                 if ! dpkg -l | grep -q hyphen-nl; then
-                    apt install hyphen-nl -y
+                    apt install -y hyphen-nl
                 fi
                 if ! dpkg -l | grep -q hunspell-nl; then
-                    apt install hunspell-nl -y
+                    apt install -y hunspell-nl
                 fi
                 if ! dpkg -l | grep -q wdutch; then
-                    apt install wdutch -y
+                    apt install -y wdutch
                 fi
 
             fi
@@ -551,14 +539,38 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
             # Update repositories and install Spotify client
             apt update
-            apt install spotify-client -y
+            apt install -y spotify-client
         fi
     fi
 
     install_filezilla_client=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_filezilla_client' | awk -F'=' '{print $2}')
     if [ "$install_filezilla_client" == "true" ]; then
         if ! dpkg -l | grep -q filezilla; then
-            apt install filezilla -y
+            apt install -y filezilla
+        fi
+    fi
+
+    install_ckb_next=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_ckb-next' | awk -F'=' '{print $2}')
+    if [ "$install_ckb_next" == "true" ]; then
+        if ! dpkg -l | grep -q ckb-next; then
+            # Install dependencies for ckb-next
+            apt install -y build-essential cmake qt6-base-dev libudev-dev zlib1g-dev libpulse-dev libquazip1-qt6-dev qt6-tools-dev qt6-wayland-dev libxcb-screensaver0-dev libxcb-ewmh-dev libxcb1-dev wayland-protocols
+
+            # Clone ckb-next repository and run quickinstall script
+            git clone https://github.com/ckb-next/ckb-next.git /opt/vdtg-rmm/ckb-next && cd /opt/vdtg-rmm/ckb-next && ./quickinstall
+
+        fi
+    fi
+
+    # Check if reboot is required and if so, check config for reboot_auto setting. If reboot_auto is true, remove reboot-required file and reboot system, otherwise display message that a reboot is required.
+    if [ -f "/opt/vdtg-rmm/reboot-required" ]; then
+        reboot_auto=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'reboot_auto' | awk -F'=' '{print $2}')
+        if [ "$reboot_auto" == "true" ]; then
+            rm /opt/vdtg-rmm/reboot-required
+            reboot
+        else
+            rm /opt/vdtg-rmm/reboot-required
+            echo "A reboot is required to complete the installation of updates and/or locale changes. Please reboot the system as soon as possible to ensure optimal performance and stability."
         fi
     fi
 

@@ -9,3 +9,6 @@ reboot-required
 
 # Ignore the displaylink-debian directory
 displaylink-debian/
+
+# Ignore the ckb-next directory
+ckb-next/

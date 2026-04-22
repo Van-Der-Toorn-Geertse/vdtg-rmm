@@ -550,7 +550,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
-    install_ckb_next=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_ckb-next' | awk -F'=' '{print $2}')
+    install_ckb_next=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_ckb_next' | awk -F'=' '{print $2}')
     if [ "$install_ckb_next" == "true" ]; then
         if ! dpkg -l | grep -q ckb-next; then
             # Install dependencies for ckb-next
@@ -559,6 +559,24 @@ if [ -d "/opt/vdtg-rmm" ]; then
             # Clone ckb-next repository and run quickinstall script
             git clone https://github.com/ckb-next/ckb-next.git /opt/vdtg-rmm/ckb-next && cd /opt/vdtg-rmm/ckb-next && ./quickinstall
 
+        fi
+    fi
+
+    install_cuda_drivers=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_cuda_drivers' | awk -F'=' '{print $2}')
+    if [ "$install_cuda_drivers" == "true" ]; then
+        if ! dpkg -l | grep -q cuda-drivers; then
+            # Check if the CUDA keyring deb file is already downloaded, if not download it
+            if [ ! -f "/opt/vdtg-rmm/cuda-keyring.deb" ]; then
+                wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb -O /opt/vdtg-rmm/cuda-keyring.deb
+            fi
+
+            # Install the CUDA keyring deb file, update package lists, and install cuda-drivers
+            dpkg -i /opt/vdtg-rmm/cuda-keyring.deb
+            apt update
+            apt install -y cuda-drivers
+
+            # Create reboot-required file to ensure drivers are properly loaded after installation
+            touch /opt/vdtg-rmm/reboot-required
         fi
     fi
 

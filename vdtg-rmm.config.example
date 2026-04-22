@@ -42,3 +42,5 @@ install_lmde_language_packs=true
 install_filezilla_client=true
 # Install ckb-next (Corsair iCUE drivers)
 install_ckb_next=false
+# Install NVIDIA CUDA drivers
+install_cuda_drivers=false

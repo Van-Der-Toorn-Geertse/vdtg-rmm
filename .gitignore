@@ -12,3 +12,6 @@ displaylink-debian/
 
 # Ignore the ckb-next directory
 ckb-next/
+
+# Ignore the cuda-keyring.deb file
+cuda-keyring.deb

@@ -5,9 +5,11 @@ update_auto=false
 # Install git
 install_git=true
 # Install net-tools
-install_net_tools=true
+install_net_tools=false
 # Install iputils_ping
-install_iputils_ping=true
+install_iputils_ping=false
+# Install traceroute
+install_traceroute=false
 # Enable cron
 cron_enable=true
 # Install runescape-dragonwilds_dedicated-server

@@ -587,6 +587,13 @@ if [ -d "/opt/vdtg-rmm" ]; then
         fi
     fi
 
+    install_ethtool=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_ethtool' | awk -F'=' '{print $2}')
+    if [ "$install_ethtool" == "true" ]; then
+        if ! dpkg -l | grep -q ethtool; then
+            apt install -y ethtool
+        fi
+    fi
+
     # Check if reboot is required and if so, check config for reboot_auto setting. If reboot_auto is true, remove reboot-required file and reboot system, otherwise display message that a reboot is required.
     if [ -f "/opt/vdtg-rmm/reboot-required" ]; then
         reboot_auto=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'reboot_auto' | awk -F'=' '{print $2}')

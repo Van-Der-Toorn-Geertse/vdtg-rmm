@@ -46,3 +46,5 @@ install_filezilla_client=true
 install_ckb_next=false
 # Install NVIDIA CUDA drivers
 install_cuda_drivers=false
+# Install ethtool
+install_ethtool=false

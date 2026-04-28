@@ -3,7 +3,7 @@
 # Check if daemon is run as root
 if [ "$EUID" -ne 0 ]
   then echo "Please run daemon as root"
-  exit
+  exit 1
 fi
 
 # Check if /opt/vdtg-rmm application folder exists else stop code execution
@@ -11,24 +11,24 @@ if [ -d "/opt/vdtg-rmm" ]
 then
     
     # Move to vdtg-rmm application folder
-    cd /opt/vdtg-rmm
+    cd /opt/vdtg-rmm >> /var/log/vdtg-rmm.log 2>&1
 
     # Reset any changes made to the git repository
-    git reset --hard
+    git reset --hard >> /var/log/vdtg-rmm.log 2>&1
 
     # Pull latest changes from git
-    git pull
+    git pull >> /var/log/vdtg-rmm.log 2>&1
 
     # Make vdtg-rmm application executable
-    chmod +x /opt/vdtg-rmm/bin/vdtg-rmm
+    chmod +x /opt/vdtg-rmm/bin/vdtg-rmm >> /var/log/vdtg-rmm.log 2>&1
 
     # Make vdtg-rmm daemon executable
-    chmod +x /opt/vdtg-rmm/vdtg-rmm-daemon
+    chmod +x /opt/vdtg-rmm/vdtg-rmm-daemon >> /var/log/vdtg-rmm.log 2>&1
 
     # Run application
-    bash /opt/vdtg-rmm/bin/vdtg-rmm
+    bash /opt/vdtg-rmm/bin/vdtg-rmm >> /var/log/vdtg-rmm.log 2>&1
 
 else
     echo "Application not installed at /opt/vdtg-rmm. Please install application in the correct folder."
-    exit
+    exit 1
 fi

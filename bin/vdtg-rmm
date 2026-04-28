@@ -3,41 +3,41 @@
 # Check if application is run as root
 if [ "$EUID" -ne 0 ]; then
   echo "Please run application as root"
-  exit
+  exit 1
 fi
 
 # Check if /opt/vdtg-rmm application folder exists else stop code execution
 if [ -d "/opt/vdtg-rmm" ]; then
 
-    cd /opt/vdtg-rmm
+    cd /opt/vdtg-rmm >> /var/log/vdtg-rmm.log 2>&1
 
     # Ensure daemon is executable
     if [ ! -x /opt/vdtg-rmm/vdtg-rmm-daemon ]; then
-        chmod +x /opt/vdtg-rmm/vdtg-rmm-daemon
+        chmod +x /opt/vdtg-rmm/vdtg-rmm-daemon >> /var/log/vdtg-rmm.log 2>&1
     fi
 
     cron_enable=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'cron_enable' | awk -F'=' '{print $2}')
     if [ "$cron_enable" == "true" ]; then
         # Ensure cron is installed and enabled
         if ! dpkg -l | grep -q cron; then
-            apt install -y cron
+            apt install -y cron >> /var/log/vdtg-rmm.log 2>&1
         fi
-        systemctl enable --now cron
+        systemctl enable --now cron >> /var/log/vdtg-rmm.log 2>&1
 
         # Add vdtg-rmm-daemon to crontab if not already present (every 6 hours)
         if ! crontab -l 2>/dev/null | grep -q "/opt/vdtg-rmm/vdtg-rmm-daemon"; then
-            (crontab -l 2>/dev/null; echo "0 */6 * * * /opt/vdtg-rmm/vdtg-rmm-daemon") | crontab -
+            (crontab -l 2>/dev/null; echo "0 */6 * * * /opt/vdtg-rmm/vdtg-rmm-daemon") | crontab - >> /var/log/vdtg-rmm.log 2>&1
         fi
     else
         # Remove vdtg-rmm-daemon from crontab if present
         if crontab -l 2>/dev/null | grep -q "/opt/vdtg-rmm/vdtg-rmm-daemon"; then
-            crontab -l 2>/dev/null | grep -v "/opt/vdtg-rmm/vdtg-rmm-daemon" | crontab -
+            crontab -l 2>/dev/null | grep -v "/opt/vdtg-rmm/vdtg-rmm-daemon" | crontab - >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
     # Config file logic
     if [ ! -f /opt/vdtg-rmm/vdtg-rmm.config ]; then
-        cp /opt/vdtg-rmm/vdtg-rmm.config.example /opt/vdtg-rmm/vdtg-rmm.config
+        cp /opt/vdtg-rmm/vdtg-rmm.config.example /opt/vdtg-rmm/vdtg-rmm.config >> /var/log/vdtg-rmm.log 2>&1
     else
         # Vul lege values aan
         while IFS= read -r line; do
@@ -46,7 +46,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
                 value=$(echo $line | awk -F'=' '{print $2}')
                 if [ -z "$value" ]; then
                     default_value=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config.example | grep -i "^$key=" | awk -F'=' '{print $2}')
-                    sed -i "s/^$key=/$key=$default_value/" /opt/vdtg-rmm/vdtg-rmm.config
+                    sed -i "s/^$key=/$key=$default_value/" /opt/vdtg-rmm/vdtg-rmm.config >> /var/log/vdtg-rmm.log 2>&1
                 fi
             fi
         done < /opt/vdtg-rmm/vdtg-rmm.config
@@ -108,33 +108,33 @@ if [ -d "/opt/vdtg-rmm" ]; then
     if [ -n "$SRC_FILE" ] && [ -f "$SRC_FILE" ]; then
         # Only copy if destination file doesn't exist or is different from source
         if [ ! -f "$DST_FILE" ] || ! cmp -s "$SRC_FILE" "$DST_FILE"; then
-            cp "$SRC_FILE" "$DST_FILE"
+            cp "$SRC_FILE" "$DST_FILE" >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
     # Check config for cron_enable and update_auto settings, if cron_enable is true disable cron before updates and re-enable after updates
     cron_enable=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'cron_enable' | awk -F'=' '{print $2}')
     if [ "$cron_enable" == "true" ]; then
-        sed -i 's/^\([[:space:]]*cron_enable[[:space:]]*=[[:space:]]*\).*/\1false/' /opt/vdtg-rmm/vdtg-rmm.config
+        sed -i 's/^\([[:space:]]*cron_enable[[:space:]]*=[[:space:]]*\).*/\1false/' /opt/vdtg-rmm/vdtg-rmm.config >> /var/log/vdtg-rmm.log 2>&1
     fi
 
     update_auto=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'update_auto' | awk -F'=' '{print $2}')
     if [ "$update_auto" == "true" ]; then
         # Refresh repositories and update system
-        apt clean
-        apt update
+        apt clean >> /var/log/vdtg-rmm.log 2>&1
+        apt update >> /var/log/vdtg-rmm.log 2>&1
 
         # If OS is Proxmox, use apt dist-upgrade to ensure kernel and proxmox packages are also updated, otherwise use apt upgrade.
         if [ "$OS_ID" == "proxmox" ]; then
-            apt dist-upgrade -y
+            apt dist-upgrade -y >> /var/log/vdtg-rmm.log 2>&1
         else
-            apt upgrade -y
+            apt upgrade -y >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
     # After updates, re-enable cron if it was enabled before
     if [ "$cron_enable" == "true" ]; then
-        sed -i 's/^\([[:space:]]*cron_enable[[:space:]]*=[[:space:]]*\).*/\1true/' /opt/vdtg-rmm/vdtg-rmm.config
+        sed -i 's/^\([[:space:]]*cron_enable[[:space:]]*=[[:space:]]*\).*/\1true/' /opt/vdtg-rmm/vdtg-rmm.config >> /var/log/vdtg-rmm.log 2>&1
     fi
 
     # Locale setup, first check if OS is not Proxmox since Proxmox has its own locale settings and changing them can cause issues with the Proxmox web interface. If not Proxmox, check config for locale setting and install locales package if not already installed, then set system locale based on config value (nl or en).
@@ -142,19 +142,19 @@ if [ -d "/opt/vdtg-rmm" ]; then
         locale=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'locale' | awk -F'=' '{print $2}')
         if [ -n "$locale" ]; then
             if ! dpkg -l | grep -q "locales"; then
-                apt install -y locales
+                apt install -y locales >> /var/log/vdtg-rmm.log 2>&1
             fi
             # Bepaal gewenste locale waarden
             if [ "$locale" == "nl" ]; then
                 desired_LANG="nl_NL.UTF-8"
                 desired_LC_MESSAGES="nl_NL.UTF-8"
                 # Uncomment nl_NL.UTF-8 UTF-8 in /etc/locale.gen indien nodig
-                sed -i 's/^# *\(nl_NL\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+                sed -i 's/^# *\(nl_NL\.UTF-8 UTF-8\)/\1/' /etc/locale.gen >> /var/log/vdtg-rmm.log 2>&1
             elif [ "$locale" == "en" ]; then
                 desired_LANG="en_US.UTF-8"
                 desired_LC_MESSAGES="POSIX"
                 # Uncomment en_US.UTF-8 UTF-8 in /etc/locale.gen indien nodig
-                sed -i 's/^# *\(en_US\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+                sed -i 's/^# *\(en_US\.UTF-8 UTF-8\)/\1/' /etc/locale.gen >> /var/log/vdtg-rmm.log 2>&1
             else
                 desired_LANG=""
                 desired_LC_MESSAGES=""
@@ -166,8 +166,8 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
             # Alleen wijzigen als huidig anders is dan gewenst
             if [ -n "$desired_LANG" ] && [ "$current_LANG" != "$desired_LANG" -o "$current_LC_MESSAGES" != "$desired_LC_MESSAGES" ]; then
-                update-locale LANG=$desired_LANG LC_MESSAGES=$desired_LC_MESSAGES
-                locale-gen
+                update-locale LANG=$desired_LANG LC_MESSAGES=$desired_LC_MESSAGES >> /var/log/vdtg-rmm.log 2>&1
+                locale-gen >> /var/log/vdtg-rmm.log 2>&1
                 touch /opt/vdtg-rmm/reboot-required
             fi
         fi
@@ -176,21 +176,21 @@ if [ -d "/opt/vdtg-rmm" ]; then
     install_git=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_git' | awk -F'=' '{print $2}')
     if [ "$install_git" == "true" ]; then
         if ! dpkg -l | grep -q git; then
-            apt install -y git
+            apt install -y git >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
     install_net_tools=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_net_tools' | awk -F'=' '{print $2}')
     if [ "$install_net_tools" == "true" ]; then
         if ! dpkg -l | grep -q net-tools; then
-            apt install -y net-tools
+            apt install -y net-tools >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
     install_iputils_ping=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_iputils_ping' | awk -F'=' '{print $2}')
     if [ "$install_iputils_ping" == "true" ]; then
         if ! dpkg -l | grep -q iputils-ping; then
-            apt install -y iputils-ping
+            apt install -y iputils-ping >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
@@ -199,7 +199,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
         if ! dpkg -l | grep -q steamcmd; then
             # Install required 32-bit libraries for SteamCMD
             if ! dpkg -l | grep -q lib32gcc-s1; then
-                apt install -y lib32gcc-s1
+                apt install -y lib32gcc-s1 >> /var/log/vdtg-rmm.log 2>&1
             fi
 
             # Create steamcmd user if not exists
@@ -208,18 +208,18 @@ if [ -d "/opt/vdtg-rmm" ]; then
             fi
 
             # Create steamcmd folder in home directory of steamcmd user and set ownership
-            mkdir -p /home/steamcmd/steamcmd
-            chown -R steamcmd:steamcmd /home/steamcmd
+            mkdir -p /home/steamcmd/steamcmd >> /var/log/vdtg-rmm.log 2>&1
+            chown -R steamcmd:steamcmd /home/steamcmd >> /var/log/vdtg-rmm.log 2>&1
 
             # Check if sudo is installed, if not install it
             if ! dpkg -l | grep -q sudo; then
-                apt install -y sudo
+                apt install -y sudo >> /var/log/vdtg-rmm.log 2>&1
             fi
 
             # Download and extract SteamCMD as the steamcmd user to ensure correct permissions, then run it once to create necessary folders
-            sudo -u steamcmd bash -c "cd /home/steamcmd/steamcmd && wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
-            sudo -u steamcmd bash -c "cd /home/steamcmd/steamcmd && tar -xvzf steamcmd_linux.tar.gz"
-            sudo -u steamcmd /home/steamcmd/steamcmd/steamcmd.sh +quit
+            sudo -u steamcmd bash -c "cd /home/steamcmd/steamcmd && wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" >> /var/log/vdtg-rmm.log 2>&1
+            sudo -u steamcmd bash -c "cd /home/steamcmd/steamcmd && tar -xvzf steamcmd_linux.tar.gz" >> /var/log/vdtg-rmm.log 2>&1
+            sudo -u steamcmd /home/steamcmd/steamcmd/steamcmd.sh +quit >> /var/log/vdtg-rmm.log 2>&1
 
         fi
     fi
@@ -230,17 +230,17 @@ if [ -d "/opt/vdtg-rmm" ]; then
             
             # Create dragonwilds user if not exists
             if ! id -u dragonwilds >/dev/null 2>&1; then
-                useradd -m -s /bin/bash dragonwilds
+                useradd -m -s /bin/bash dragonwilds >> /var/log/vdtg-rmm.log 2>&1
             fi
 
             # Create necessary folders for dragonwilds user if not exists
             if [ ! -d "/home/dragonwilds/rs_server" ]; then
-                mkdir -p /home/dragonwilds/rs_server
-                chown dragonwilds:dragonwilds /home/dragonwilds/rs_server
+                mkdir -p /home/dragonwilds/rs_server >> /var/log/vdtg-rmm.log 2>&1
+                chown dragonwilds:dragonwilds /home/dragonwilds/rs_server >> /var/log/vdtg-rmm.log 2>&1
             fi
             if [ ! -d "/home/dragonwilds/dragonwilds_backups" ]; then
-                mkdir -p /home/dragonwilds/dragonwilds_backups
-                chown dragonwilds:dragonwilds /home/dragonwilds/dragonwilds_backups
+                mkdir -p /home/dragonwilds/dragonwilds_backups >> /var/log/vdtg-rmm.log 2>&1
+                chown dragonwilds:dragonwilds /home/dragonwilds/dragonwilds_backups >> /var/log/vdtg-rmm.log 2>&1
             fi
 
             # Install SteamCMD if not already installed, but only if the steamcmd.sh file doesn't exist in the expected location.
@@ -248,25 +248,25 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
                 # Install required 32-bit libraries for SteamCMD
                 if ! dpkg -l | grep -q lib32gcc-s1; then
-                    apt install -y lib32gcc-s1
+                    apt install -y lib32gcc-s1 >> /var/log/vdtg-rmm.log 2>&1
                 fi
 
                 # Create steamcmd folder in home directory of dragonwilds user and set ownership
-                mkdir -p /home/dragonwilds/steamcmd
-                chown -R dragonwilds:dragonwilds /home/dragonwilds
+                mkdir -p /home/dragonwilds/steamcmd >> /var/log/vdtg-rmm.log 2>&1
+                chown -R dragonwilds:dragonwilds /home/dragonwilds >> /var/log/vdtg-rmm.log 2>&1
 
                 # Check if sudo is installed, if not install it
                 if ! dpkg -l | grep -q sudo; then
-                    apt install -y sudo
+                    apt install -y sudo >> /var/log/vdtg-rmm.log 2>&1
                 fi
                 
                 # Download and extract SteamCMD as the dragonwilds user to ensure correct permissions, then run it once to create necessary folders
-                sudo -u dragonwilds bash -c "cd /home/dragonwilds/steamcmd && wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
-                sudo -u dragonwilds bash -c "cd /home/dragonwilds/steamcmd && tar -xvzf steamcmd_linux.tar.gz"
-                sudo -u dragonwilds /home/dragonwilds/steamcmd/steamcmd.sh +quit
+                sudo -u dragonwilds bash -c "cd /home/dragonwilds/steamcmd && wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" >> /var/log/vdtg-rmm.log 2>&1
+                sudo -u dragonwilds bash -c "cd /home/dragonwilds/steamcmd && tar -xvzf steamcmd_linux.tar.gz" >> /var/log/vdtg-rmm.log 2>&1
+                sudo -u dragonwilds /home/dragonwilds/steamcmd/steamcmd.sh +quit >> /var/log/vdtg-rmm.log 2>&1
 
                 # Use SteamCMD to download the RuneScape Dragonwilds Dedicated Server files, install them in the correct folder with the correct user permissions
-                sudo -u dragonwilds /home/dragonwilds/steamcmd/steamcmd.sh +force_install_dir /home/dragonwilds/rs_server +login anonymous +app_update 4019830 +quit
+                sudo -u dragonwilds /home/dragonwilds/steamcmd/steamcmd.sh +force_install_dir /home/dragonwilds/rs_server +login anonymous +app_update 4019830 +quit >> /var/log/vdtg-rmm.log 2>&1
 
             fi
 
@@ -274,11 +274,11 @@ if [ -d "/opt/vdtg-rmm" ]; then
             SERVICE_SRC="/opt/vdtg-rmm/systemctl/${OS_ID}/${OS_VER}/runescape-dragonwilds_dedicated-server.service"
             SERVICE_DST="/etc/systemd/system/runescape-dragonwilds_dedicated-server.service"
             if [ -f "$SERVICE_SRC" ]; then
-                cp "$SERVICE_SRC" "$SERVICE_DST"
-                chown root:root "$SERVICE_DST"
-                chmod 644 "$SERVICE_DST"
-                systemctl daemon-reload
-                systemctl enable runescape-dragonwilds-dedicated-server
+                cp "$SERVICE_SRC" "$SERVICE_DST" >> /var/log/vdtg-rmm.log 2>&1
+                chown root:root "$SERVICE_DST" >> /var/log/vdtg-rmm.log 2>&1
+                chmod 644 "$SERVICE_DST" >> /var/log/vdtg-rmm.log 2>&1
+                systemctl daemon-reload >> /var/log/vdtg-rmm.log 2>&1
+                systemctl enable runescape-dragonwilds-dedicated-server >> /var/log/vdtg-rmm.log 2>&1
                 echo "RuneScape Dragonwilds Dedicated Server service installed, please edit /home/dragonwilds/rs_server/RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini to configure the server and then start the service with: systemctl start runescape-dragonwilds-dedicated-server"
             else
                 echo "Service file for RuneScape Dragonwilds Dedicated Server not found for OS: $OS_ID version: $OS_VER. Please contact support to add compatibility for your OS version."
@@ -293,13 +293,13 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
             # Create eco user if not exists
             if ! id -u eco >/dev/null 2>&1; then
-                useradd -m -s /bin/bash eco
+                useradd -m -s /bin/bash eco >> /var/log/vdtg-rmm.log 2>&1
             fi
 
             # Create necessary folders for eco user if not exists
             if [ ! -d "/home/eco/eco_server" ]; then
-                mkdir -p /home/eco/eco_server
-                chown eco:eco /home/eco/eco_server
+                mkdir -p /home/eco/eco_server >> /var/log/vdtg-rmm.log 2>&1
+                chown eco:eco /home/eco/eco_server >> /var/log/vdtg-rmm.log 2>&1
             fi
 
             # Install SteamCMD if not already installed, but only if the steamcmd.sh file doesn't exist in the expected location.
@@ -307,25 +307,25 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
                 # Install required 32-bit libraries for SteamCMD
                 if ! dpkg -l | grep -q lib32gcc-s1; then
-                    apt install -y lib32gcc-s1
+                    apt install -y lib32gcc-s1 >> /var/log/vdtg-rmm.log 2>&1
                 fi
 
                 # Create steamcmd folder in home directory of eco user and set ownership
-                mkdir -p /home/eco/steamcmd
-                chown -R eco:eco /home/eco
+                mkdir -p /home/eco/steamcmd >> /var/log/vdtg-rmm.log 2>&1
+                chown -R eco:eco /home/eco >> /var/log/vdtg-rmm.log 2>&1
 
                 # Check if sudo is installed, if not install it
                 if ! dpkg -l | grep -q sudo; then
-                    apt install -y sudo
+                    apt install -y sudo >> /var/log/vdtg-rmm.log 2>&1
                 fi
                 
                 # Download and extract SteamCMD as the eco user to ensure correct permissions, then run it once to create necessary folders
-                sudo -u eco bash -c "cd /home/eco/steamcmd && wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
-                sudo -u eco bash -c "cd /home/eco/steamcmd && tar -xvzf steamcmd_linux.tar.gz"
-                sudo -u eco /home/eco/steamcmd/steamcmd.sh +quit
+                sudo -u eco bash -c "cd /home/eco/steamcmd && wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" >> /var/log/vdtg-rmm.log 2>&1
+                sudo -u eco bash -c "cd /home/eco/steamcmd && tar -xvzf steamcmd_linux.tar.gz" >> /var/log/vdtg-rmm.log 2>&1
+                sudo -u eco /home/eco/steamcmd/steamcmd.sh +quit >> /var/log/vdtg-rmm.log 2>&1
 
                 # Use SteamCMD to download the ECO Dedicated Server files, install them in the correct folder with the correct user permissions
-                sudo -u eco /home/eco/steamcmd/steamcmd.sh +force_install_dir /home/eco/eco_server +login anonymous +app_update 739590 -beta default validate +quit
+                sudo -u eco /home/eco/steamcmd/steamcmd.sh +force_install_dir /home/eco/eco_server +login anonymous +app_update 739590 -beta default validate +quit >> /var/log/vdtg-rmm.log 2>&1
 
             fi
 
@@ -333,11 +333,11 @@ if [ -d "/opt/vdtg-rmm" ]; then
             SERVICE_SRC="/opt/vdtg-rmm/systemctl/${OS_ID}/${OS_VER}/eco-dedicated-server.service"
             SERVICE_DST="/etc/systemd/system/eco-dedicated-server.service"
             if [ -f "$SERVICE_SRC" ]; then
-                cp "$SERVICE_SRC" "$SERVICE_DST"
-                chown root:root "$SERVICE_DST"
-                chmod 644 "$SERVICE_DST"
-                systemctl daemon-reload
-                systemctl enable eco-dedicated-server
+                cp "$SERVICE_SRC" "$SERVICE_DST" >> /var/log/vdtg-rmm.log 2>&1
+                chown root:root "$SERVICE_DST" >> /var/log/vdtg-rmm.log 2>&1
+                chmod 644 "$SERVICE_DST" >> /var/log/vdtg-rmm.log 2>&1
+                systemctl daemon-reload >> /var/log/vdtg-rmm.log 2>&1
+                systemctl enable eco-dedicated-server >> /var/log/vdtg-rmm.log 2>&1
                 echo "ECO Dedicated Server service installed, please edit /home/eco/eco_server/Configs/* to configure the server and then start the service with: systemctl start eco-dedicated-server"
 
                 # Inject userToken direct in ExecStart als deze in de config staat
@@ -351,7 +351,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
             # Install required libgdiplus for ECO Dedicated Server
             if ! dpkg -l | grep -q libgdiplus; then
-                apt install -y libgdiplus
+                apt install -y libgdiplus >> /var/log/vdtg-rmm.log 2>&1
             fi
 
         fi
@@ -362,32 +362,32 @@ if [ -d "/opt/vdtg-rmm" ]; then
         if [ ! -d "/opt/vdtg-rmm/displaylink-debian" ]; then
             
             # Install dependencies
-            apt install -y unzip dkms lsb-release linux-headers-$(uname -r) linux-source libdrm-dev
+            apt install -y unzip dkms lsb-release linux-headers-$(uname -r) linux-source libdrm-dev >> /var/log/vdtg-rmm.log 2>&1
 
             # Clone the displaylink-debian repository
-            git clone https://github.com/AdnanHodzic/displaylink-debian.git /opt/vdtg-rmm/displaylink-debian
+            git clone https://github.com/AdnanHodzic/displaylink-debian.git /opt/vdtg-rmm/displaylink-debian >> /var/log/vdtg-rmm.log 2>&1
 
             # Make the install script non-interactive by automatically accepting installation of missing dependencies, but if a dependency is missing, display message and abort installation instead of trying to install it. This is to prevent issues with apt-get install hanging or asking for user input during the installation process.
-            sed -i '/read -p "\$dep not found! Install\? \[Y\/n\] " response/,/if ! apt-get install \$dep/{/read -p/d;/response=/d;/if ! apt-get install \$dep/c\\t\t\techo "$dep not found! Aborting."\\n\t\t\texit 1}' /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh
+            sed -i '/read -p "\$dep not found! Install\? \[Y\/n\] " response/,/if ! apt-get install \$dep/{/read -p/d;/response=/d;/if ! apt-get install \$dep/c\\t\t\techo "$dep not found! Aborting."\\n\t\t\texit 1}' /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh >> /var/log/vdtg-rmm.log 2>&1
 
             # Make the install script non-interactive by automatically accepting the license agreement
-            sed -i '/echo -en "\\nPlease read the Software License Agreement/,/read ACCEPT/ { /echo -en/d; /read ACCEPT/c\\tACCEPT="y" }' /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh
+            sed -i '/echo -en "\\nPlease read the Software License Agreement/,/read ACCEPT/ { /echo -en/d; /read ACCEPT/c\\tACCEPT="y" }' /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh >> /var/log/vdtg-rmm.log 2>&1
 
             # Make the install script non-interactive by skipping the reboot prompt
-            sed -i '/^setup_complete()/,/^}/c\\\nsetup_complete() {\n  echo "Reboot required to apply changes. Please reboot manually."\n}\n' /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh
+            sed -i '/^setup_complete()/,/^}/c\\\nsetup_complete() {\n  echo "Reboot required to apply changes. Please reboot manually."\n}\n' /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh >> /var/log/vdtg-rmm.log 2>&1
 
             # Make the install script executable
-            chmod +x /opt/vdtg-rmm/displaylink-debian/displaylink-debian
+            chmod +x /opt/vdtg-rmm/displaylink-debian/displaylink-debian >> /var/log/vdtg-rmm.log 2>&1
 
             # Run the install script
-            sudo /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh --install
+            sudo /opt/vdtg-rmm/displaylink-debian/displaylink-debian.sh --install >> /var/log/vdtg-rmm.log 2>&1
 
             touch /opt/vdtg-rmm/reboot-required
 
             # Set intel_modesetting to true in vdtg-rmm.config to ensure optimal performance and compatibility with DisplayLink drivers, but only if it is not already set to true.
             intel_modesetting=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'intel_modesetting' | awk -F'=' '{print $2}')
             if [ "$intel_modesetting" != "true" ]; then
-                sed -i 's/^\([[:space:]]*intel_modesetting[[:space:]]*=[[:space:]]*\).*/\1true/' /opt/vdtg-rmm/vdtg-rmm.config
+                sed -i 's/^\([[:space:]]*intel_modesetting[[:space:]]*=[[:space:]]*\).*/\1true/' /opt/vdtg-rmm/vdtg-rmm.config >> /var/log/vdtg-rmm.log 2>&1
             fi
 
         fi
@@ -398,7 +398,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
         
         # If the 20-displaylink.conf file doesn't exist or doesn't contain the correct Driver "modesetting" line, create/overwrite the file with the correct configuration to ensure optimal performance and compatibility with DisplayLink drivers.
         if [ ! -f "/etc/X11/xorg.conf.d/20-displaylink.conf" ] || ! grep -q 'Driver "modesetting"' /etc/X11/xorg.conf.d/20-displaylink.conf; then
-            mkdir -p /etc/X11/xorg.conf.d
+            mkdir -p /etc/X11/xorg.conf.d >> /var/log/vdtg-rmm.log 2>&1
             echo 'Section "Device"' > /etc/X11/xorg.conf.d/20-displaylink.conf
             echo '    Identifier "Intel Graphics"' >> /etc/X11/xorg.conf.d/20-displaylink.conf
             echo '    Driver "modesetting"' >> /etc/X11/xorg.conf.d/20-displaylink.conf
@@ -407,7 +407,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
         # If the xserver-xorg-video-intel package is installed, remove it to prevent conflicts with the modesetting driver and ensure optimal performance and compatibility with DisplayLink drivers.
         if dpkg -l | grep -q xserver-xorg-video-intel; then
-            apt remove xserver-xorg-video-intel -y
+            apt remove xserver-xorg-video-intel -y >> /var/log/vdtg-rmm.log 2>&1
         fi
 
         touch /opt/vdtg-rmm/reboot-required
@@ -424,21 +424,21 @@ if [ -d "/opt/vdtg-rmm" ]; then
             fi
 
             # Install dependencies for Zoho Assist Remote Support
-            apt install -y wget fuse
+            apt install -y wget fuse >> /var/log/vdtg-rmm.log 2>&1
 
             # Download and install Zoho Assist Remote Support
-            wget -O /opt/vdtg-rmm/applications/ZohoAssist.AppImage https://downloads.zohocdn.com/assist-desktop/zoho-assist-desktop-x64.AppImage
+            wget -O /opt/vdtg-rmm/applications/ZohoAssist.AppImage https://downloads.zohocdn.com/assist-desktop/zoho-assist-desktop-x64.AppImage >> /var/log/vdtg-rmm.log 2>&1
 
             # Make the AppImage executable
-            chmod +x /opt/vdtg-rmm/applications/ZohoAssist.AppImage
+            chmod +x /opt/vdtg-rmm/applications/ZohoAssist.AppImage >> /var/log/vdtg-rmm.log 2>&1
 
             # Create desktop entry for Zoho Assist Remote Support
-            cp /opt/vdtg-rmm/applications/zoho-assist.desktop /usr/share/applications/zoho-assist.desktop
-            chown root:root /usr/share/applications/zoho-assist.desktop
-            chmod 644 /usr/share/applications/zoho-assist.desktop
+            cp /opt/vdtg-rmm/applications/zoho-assist.desktop /usr/share/applications/zoho-assist.desktop >> /var/log/vdtg-rmm.log 2>&1
+            chown root:root /usr/share/applications/zoho-assist.desktop >> /var/log/vdtg-rmm.log 2>&1
+            chmod 644 /usr/share/applications/zoho-assist.desktop >> /var/log/vdtg-rmm.log 2>&1
             
             # Update the desktop database to recognize the new application
-            update-desktop-database
+            update-desktop-database >> /var/log/vdtg-rmm.log 2>&1
 
         fi
     fi
@@ -447,22 +447,22 @@ if [ -d "/opt/vdtg-rmm" ]; then
     if [ "$install_vscode" == "true" ]; then
         if ! dpkg -l | grep -q code; then
             # Install dependencies for Visual Studio Code
-            apt install -y wget gpg
+            apt install -y wget gpg >> /var/log/vdtg-rmm.log 2>&1
 
             # Download and install Microsoft GPG key and repository for Visual Studio Code
-            wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft.gpg
+            wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft.gpg 2>> /var/log/vdtg-rmm.log
             echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://mirror.vdtg.nl/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list
 
             # Update repositories and install Visual Studio Code
-            apt update
-            apt install -y code
+            apt update >> /var/log/vdtg-rmm.log 2>&1
+            apt install -y code >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
     install_remmina=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_remmina' | awk -F'=' '{print $2}')
     if [ "$install_remmina" == "true" ]; then
         if ! dpkg -l | grep -q remmina; then
-            apt install -y remmina remmina-plugin-rdp
+            apt install -y remmina remmina-plugin-rdp >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
@@ -471,7 +471,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
         install_lmde_multimedia_support=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_lmde_multimedia_support' | awk -F'=' '{print $2}')
         if [ "$install_lmde_multimedia_support" == "true" ]; then
             if ! dpkg -l | grep -q mint-meta-codecs; then
-                apt install -y mint-meta-codecs
+                apt install -y mint-meta-codecs >> /var/log/vdtg-rmm.log 2>&1
             fi
         fi
 
@@ -479,14 +479,20 @@ if [ -d "/opt/vdtg-rmm" ]; then
         if [ "$ufw_enable" == "true" ]; then
             
             if ! dpkg -l | grep -q ufw; then
-                apt install -y ufw
+                apt install -y ufw >> /var/log/vdtg-rmm.log 2>&1
             fi
 
-            ufw enable
+            # Check if firewall is already enabled, if not enable it
+            if ! ufw status | grep -q "Status: active"; then
+                ufw enable >> /var/log/vdtg-rmm.log 2>&1
+            fi
 
         elif [ "$ufw_enable" == "false" ]; then
             if dpkg -l | grep -q ufw; then
-                ufw disable
+                # Check if firewall is already disabled, if not disable it
+                if ufw status | grep -q "Status: active"; then
+                    ufw disable >> /var/log/vdtg-rmm.log 2>&1
+                fi
             fi
         fi
 
@@ -521,32 +527,32 @@ if [ -d "/opt/vdtg-rmm" ]; then
             
             # Check if dependencies for Spotify client are installed, else install.
             if ! dpkg -l | grep -q apt-transport-https; then
-                apt install -y apt-transport-https
+                apt install -y apt-transport-https >> /var/log/vdtg-rmm.log 2>&1
             fi
             if ! dpkg -l | grep -q ca-certificates; then
-                apt install -y ca-certificates
+                apt install -y ca-certificates >> /var/log/vdtg-rmm.log 2>&1
             fi
             if ! dpkg -l | grep -q wget; then
-                apt install -y wget
+                apt install -y wget >> /var/log/vdtg-rmm.log 2>&1
             fi
             if ! dpkg -l | grep -q gpg; then
-                apt install -y gpg
+                apt install -y gpg >> /var/log/vdtg-rmm.log 2>&1
             fi
 
             # Download and install Spotify GPG key and repository
-            wget -qO- https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.asc | gpg --dearmor > /usr/share/keyrings/spotify.gpg
+            wget -qO- https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.asc | gpg --dearmor > /usr/share/keyrings/spotify.gpg 2>> /var/log/vdtg-rmm.log
             echo "deb [arch=amd64 signed-by=/usr/share/keyrings/spotify.gpg] https://mirror.vdtg.nl/spotify stable non-free" > /etc/apt/sources.list.d/spotify.list
 
             # Update repositories and install Spotify client
-            apt update
-            apt install -y spotify-client
+            apt update >> /var/log/vdtg-rmm.log 2>&1
+            apt install -y spotify-client >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
     install_filezilla_client=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_filezilla_client' | awk -F'=' '{print $2}')
     if [ "$install_filezilla_client" == "true" ]; then
         if ! dpkg -l | grep -q filezilla; then
-            apt install -y filezilla
+            apt install -y filezilla >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
@@ -554,10 +560,10 @@ if [ -d "/opt/vdtg-rmm" ]; then
     if [ "$install_ckb_next" == "true" ]; then
         if ! dpkg -l | grep -q ckb-next; then
             # Install dependencies for ckb-next
-            apt install -y build-essential cmake qt6-base-dev libudev-dev zlib1g-dev libpulse-dev libquazip1-qt6-dev qt6-tools-dev qt6-wayland-dev libxcb-screensaver0-dev libxcb-ewmh-dev libxcb1-dev wayland-protocols
+            apt install -y build-essential cmake qt6-base-dev libudev-dev zlib1g-dev libpulse-dev libquazip1-qt6-dev qt6-tools-dev qt6-wayland-dev libxcb-screensaver0-dev libxcb-ewmh-dev libxcb1-dev wayland-protocols >> /var/log/vdtg-rmm.log 2>&1
 
             # Clone ckb-next repository and run quickinstall script
-            git clone https://github.com/ckb-next/ckb-next.git /opt/vdtg-rmm/ckb-next && cd /opt/vdtg-rmm/ckb-next && ./quickinstall
+            git clone https://github.com/ckb-next/ckb-next.git /opt/vdtg-rmm/ckb-next >> /var/log/vdtg-rmm.log 2>&1 && cd /opt/vdtg-rmm/ckb-next && ./quickinstall >> /var/log/vdtg-rmm.log 2>&1
 
         fi
     fi
@@ -567,13 +573,13 @@ if [ -d "/opt/vdtg-rmm" ]; then
         if ! dpkg -l | grep -q cuda-drivers; then
             # Check if the CUDA keyring deb file is already downloaded, if not download it
             if [ ! -f "/opt/vdtg-rmm/cuda-keyring.deb" ]; then
-                wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb -O /opt/vdtg-rmm/cuda-keyring.deb
+                wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb -O /opt/vdtg-rmm/cuda-keyring.deb >> /var/log/vdtg-rmm.log 2>&1
             fi
 
             # Install the CUDA keyring deb file, update package lists, and install cuda-drivers
-            dpkg -i /opt/vdtg-rmm/cuda-keyring.deb
-            apt update
-            apt install -y cuda-drivers
+            dpkg -i /opt/vdtg-rmm/cuda-keyring.deb >> /var/log/vdtg-rmm.log 2>&1
+            apt update >> /var/log/vdtg-rmm.log 2>&1
+            apt install -y cuda-drivers >> /var/log/vdtg-rmm.log 2>&1
 
             # Create reboot-required file to ensure drivers are properly loaded after installation
             touch /opt/vdtg-rmm/reboot-required
@@ -583,14 +589,14 @@ if [ -d "/opt/vdtg-rmm" ]; then
     install_traceroute=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_traceroute' | awk -F'=' '{print $2}')
     if [ "$install_traceroute" == "true" ]; then
         if ! dpkg -l | grep -q traceroute; then
-            apt install -y traceroute
+            apt install -y traceroute >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
     install_ethtool=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_ethtool' | awk -F'=' '{print $2}')
     if [ "$install_ethtool" == "true" ]; then
         if ! dpkg -l | grep -q ethtool; then
-            apt install -y ethtool
+            apt install -y ethtool >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
@@ -608,5 +614,5 @@ if [ -d "/opt/vdtg-rmm" ]; then
 
 else
     echo "Application not installed at /opt/vdtg-rmm. Please install application in the correct folder."
-    exit
+    exit 1
 fi

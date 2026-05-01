@@ -2,7 +2,7 @@
 
 # Check if daemon is run as root
 if [ "$EUID" -ne 0 ]
-  then echo "Please run daemon as root"
+  then echo "Please run daemon as root" >> /var/log/vdtg-rmm.log 2>&1
   exit 1
 fi
 
@@ -29,6 +29,6 @@ then
     bash /opt/vdtg-rmm/bin/vdtg-rmm >> /var/log/vdtg-rmm.log 2>&1
 
 else
-    echo "Application not installed at /opt/vdtg-rmm. Please install application in the correct folder."
+    echo "Application not installed at /opt/vdtg-rmm. Please install application in the correct folder." >> /var/log/vdtg-rmm.log 2>&1
     exit 1
 fi

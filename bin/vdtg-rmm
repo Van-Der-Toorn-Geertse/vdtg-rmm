@@ -1,9 +1,102 @@
 #!/bin/bash
 
-# Check if application is run as root
 if [ "$EUID" -ne 0 ]; then
-  echo "Please run application as root"
-  exit 1
+    echo "Please run application as root" >> /var/log/vdtg-rmm.log 2>&1
+    exit 1
+fi
+
+# --- CVE-2026-31431 kernel vulnerability check ---
+# Markeer kernel als kwetsbaar als:
+# - Kernel is ouder dan 1 april 2026 (upstream fix)
+# - Of behoort tot bekende kwetsbare reeksen (5.x, 6.0–6.18, vroege 7.0)
+# Veilig:
+# - 5.15.204+, 6.12.85+, 6.18.12/6.18.22+, 6.19.12+, 7.0+
+
+# Kernel versie ophalen
+kernel_version=$(uname -r | cut -d '-' -f1)
+kernel_major=$(echo "$kernel_version" | cut -d '.' -f1)
+kernel_minor=$(echo "$kernel_version" | cut -d '.' -f2)
+kernel_patch=$(echo "$kernel_version" | cut -d '.' -f3)
+
+# Kernel build datum ophalen
+kernel_build_date=$(uname -v | grep -oE '[A-Za-z]{3} [A-Za-z]{3} [ 0-9]{1,2} [0-9]{2}:[0-9]{2}:[0-9]{2} [A-Za-z]{3} [0-9]{4}')
+kernel_build_epoch=$(date -d "$kernel_build_date" +%s 2>/dev/null)
+fix_epoch=$(date -d "2026-04-01" +%s)
+
+# Functie om te vergelijken of versie1 >= versie2
+version_ge() {
+    [ "$1" = "$2" ] && return 0
+    local IFS=.
+    local i ver1=($1) ver2=($2)
+    # Vul met nullen tot gelijke lengte
+    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++)); do ver1[i]=0; done
+    for ((i=0; i<${#ver1[@]}; i++)); do
+        if [[ -z ${ver2[i]} ]]; then
+            # bv. 6.19 > 6.19.0
+            if ((10#${ver1[i]} > 0)); then return 0; fi
+        elif ((10#${ver1[i]} > 10#${ver2[i]})); then
+            return 0
+        elif ((10#${ver1[i]} < 10#${ver2[i]})); then
+            return 1
+        fi
+    done
+    return 0
+}
+
+# Kwetsbaarheidslogica
+vulnerable_kernel=false
+safe=false
+
+case "$kernel_major.$kernel_minor" in
+    5.*)
+        # Alleen 5.15.204+ is veilig
+        if version_ge "$kernel_version" "5.15.204"; then
+            safe=true
+        else
+            vulnerable_kernel=true
+        fi
+        ;;
+    6.0|6.1|6.2|6.3|6.4|6.5|6.6|6.7|6.8|6.9|6.10|6.11)
+        vulnerable_kernel=true
+        ;;
+    6.12)
+        if version_ge "$kernel_version" "6.12.85"; then
+            safe=true
+        else
+            vulnerable_kernel=true
+        fi
+        ;;
+    6.18)
+        # 6.18.12 en 6.18.22 zijn veilig, alles lager kwetsbaar
+        if version_ge "$kernel_version" "6.18.22"; then
+            safe=true
+        elif version_ge "$kernel_version" "6.18.12"; then
+            safe=true
+        else
+            vulnerable_kernel=true
+        fi
+        ;;
+    6.19)
+        if version_ge "$kernel_version" "6.19.12"; then
+            safe=true
+        else
+            vulnerable_kernel=true
+        fi
+        ;;
+    7.0|7.*)
+        safe=true
+        ;;
+    *)
+        # Onbekende kernelreeks, check build datum
+        if [ -n "$kernel_build_epoch" ] && [ "$kernel_build_epoch" -lt "$fix_epoch" ]; then
+            vulnerable_kernel=true
+        fi
+        ;;
+esac
+
+if [ "$vulnerable_kernel" = true ] && [ "$safe" != true ]; then
+    echo "[WAARSCHUWING] Deze kernel ($kernel_version) is kwetsbaar voor CVE-2026-31431. Update naar een veilige kernelversie." >> /var/log/vdtg-rmm.log 2>&1
+
 fi
 
 # Check if /opt/vdtg-rmm application folder exists else stop code execution
@@ -101,7 +194,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
         # Unsupported OS, skip sources.list setup
         SRC_FILE=""
         DST_FILE=""
-        echo "Unsupported OS: $OS_ID. Skipping sources.list setup. Please contact support to add compatibility for your OS."
+        echo "Unsupported OS: $OS_ID. Skipping sources.list setup. Please contact support to add compatibility for your OS." >> /var/log/vdtg-rmm.log 2>&1
     fi
 
     install_vdtg_mirror=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_vdtg_mirror' | awk -F'=' '{print $2}')
@@ -113,7 +206,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
             # Only copy if destination file doesn't exist or is different from source
             if [ ! -f "$DST_FILE" ] || ! cmp -s "$SRC_FILE" "$DST_FILE"; then
                 cp "$SRC_FILE" "$DST_FILE" >> /var/log/vdtg-rmm.log 2>&1
-                echo "VDTG mirror sources.list installed, updating package lists..."
+                echo "VDTG mirror sources.list installed, updating package lists..." >> /var/log/vdtg-rmm.log 2>&1
                 apt clean >> /var/log/vdtg-rmm.log 2>&1
                 apt update >> /var/log/vdtg-rmm.log 2>&1
             fi
@@ -287,9 +380,9 @@ if [ -d "/opt/vdtg-rmm" ]; then
                 chmod 644 "$SERVICE_DST" >> /var/log/vdtg-rmm.log 2>&1
                 systemctl daemon-reload >> /var/log/vdtg-rmm.log 2>&1
                 systemctl enable runescape-dragonwilds-dedicated-server >> /var/log/vdtg-rmm.log 2>&1
-                echo "RuneScape Dragonwilds Dedicated Server service installed, please edit /home/dragonwilds/rs_server/RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini to configure the server and then start the service with: systemctl start runescape-dragonwilds-dedicated-server"
+                echo "RuneScape Dragonwilds Dedicated Server service installed, please edit /home/dragonwilds/rs_server/RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini to configure the server and then start the service with: systemctl start runescape-dragonwilds-dedicated-server" >> /var/log/vdtg-rmm.log 2>&1
             else
-                echo "Service file for RuneScape Dragonwilds Dedicated Server not found for OS: $OS_ID version: $OS_VER. Please contact support to add compatibility for your OS version."
+                echo "Service file for RuneScape Dragonwilds Dedicated Server not found for OS: $OS_ID version: $OS_VER. Please contact support to add compatibility for your OS version." >> /var/log/vdtg-rmm.log 2>&1
             fi
 
         fi
@@ -346,7 +439,7 @@ if [ -d "/opt/vdtg-rmm" ]; then
                 chmod 644 "$SERVICE_DST" >> /var/log/vdtg-rmm.log 2>&1
                 systemctl daemon-reload >> /var/log/vdtg-rmm.log 2>&1
                 systemctl enable eco-dedicated-server >> /var/log/vdtg-rmm.log 2>&1
-                echo "ECO Dedicated Server service installed, please edit /home/eco/eco_server/Configs/* to configure the server and then start the service with: systemctl start eco-dedicated-server"
+                echo "ECO Dedicated Server service installed, please edit /home/eco/eco_server/Configs/* to configure the server and then start the service with: systemctl start eco-dedicated-server" >> /var/log/vdtg-rmm.log 2>&1
 
                 # Inject userToken direct in ExecStart als deze in de config staat
                 eco_userToken=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i '^eco_dedicated_server_userToken=' | awk -F'=' '{print $2}')
@@ -616,11 +709,11 @@ if [ -d "/opt/vdtg-rmm" ]; then
             reboot
         else
             rm /opt/vdtg-rmm/reboot-required
-            echo "A reboot is required to complete the installation of updates and/or locale changes. Please reboot the system as soon as possible to ensure optimal performance and stability."
+            echo "A reboot is required to complete the installation of updates and/or locale changes. Please reboot the system as soon as possible to ensure optimal performance and stability." >> /var/log/vdtg-rmm.log 2>&1
         fi
     fi
 
 else
-    echo "Application not installed at /opt/vdtg-rmm. Please install application in the correct folder."
+    echo "Application not installed at /opt/vdtg-rmm. Please install application in the correct folder." >> /var/log/vdtg-rmm.log 2>&1
     exit 1
 fi

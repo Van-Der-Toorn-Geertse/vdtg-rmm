@@ -104,11 +104,19 @@ if [ -d "/opt/vdtg-rmm" ]; then
         echo "Unsupported OS: $OS_ID. Skipping sources.list setup. Please contact support to add compatibility for your OS."
     fi
 
-    # If source file exists and is different from destination, copy it
-    if [ -n "$SRC_FILE" ] && [ -f "$SRC_FILE" ]; then
-        # Only copy if destination file doesn't exist or is different from source
-        if [ ! -f "$DST_FILE" ] || ! cmp -s "$SRC_FILE" "$DST_FILE"; then
-            cp "$SRC_FILE" "$DST_FILE" >> /var/log/vdtg-rmm.log 2>&1
+    install_vdtg_mirror=$(grep -v '^#' /opt/vdtg-rmm/vdtg-rmm.config | grep -i 'install_vdtg_mirror' | awk -F'=' '{print $2}')
+    # If the config setting to install the VDTG mirror is true, copy the selected sources.list file to the correct location based on detected OS and version. This will set the system to use the VDTG mirror for package updates and installations, which can improve speed and reliability.
+    if [ "$install_vdtg_mirror" == "true" ]; then
+        
+        # If source file exists and is different from destination, copy it
+        if [ -n "$SRC_FILE" ] && [ -f "$SRC_FILE" ]; then
+            # Only copy if destination file doesn't exist or is different from source
+            if [ ! -f "$DST_FILE" ] || ! cmp -s "$SRC_FILE" "$DST_FILE"; then
+                cp "$SRC_FILE" "$DST_FILE" >> /var/log/vdtg-rmm.log 2>&1
+                echo "VDTG mirror sources.list installed, updating package lists..."
+                apt clean >> /var/log/vdtg-rmm.log 2>&1
+                apt update >> /var/log/vdtg-rmm.log 2>&1
+            fi
         fi
     fi
 

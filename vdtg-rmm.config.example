@@ -37,14 +37,16 @@ install_lmde_multimedia_support=true
 # Enable UFW (firewall)
 ufw_enable=true
 # Install Spotify Client
-install_spotify_client=true
+install_spotify_client=false
 # Install Linux Mint Language Packs (if on LMDE)
 install_lmde_language_packs=true
 # Install FileZilla Client
-install_filezilla_client=true
+install_filezilla_client=false
 # Install ckb-next (Corsair iCUE drivers)
 install_ckb_next=false
 # Install NVIDIA CUDA drivers
 install_cuda_drivers=false
 # Install ethtool
 install_ethtool=false
+# Install VDTG Mirror repository
+install_vdtg_mirror=true

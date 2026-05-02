@@ -11,7 +11,7 @@ if [ -d "/opt/vdtg-rmm" ]
 then
     
     # Move to vdtg-rmm application folder
-    cd /opt/vdtg-rmm >> /var/log/vdtg-rmm.log 2>&1
+    cd /opt/vdtg-rmm
 
     # Reset any changes made to the git repository
     git reset --hard >> /var/log/vdtg-rmm.log 2>&1
@@ -20,10 +20,10 @@ then
     git pull >> /var/log/vdtg-rmm.log 2>&1
 
     # Make vdtg-rmm application executable
-    chmod +x /opt/vdtg-rmm/bin/vdtg-rmm >> /var/log/vdtg-rmm.log 2>&1
+    chmod +x /opt/vdtg-rmm/bin/vdtg-rmm
 
     # Make vdtg-rmm daemon executable
-    chmod +x /opt/vdtg-rmm/vdtg-rmm-daemon >> /var/log/vdtg-rmm.log 2>&1
+    chmod +x /opt/vdtg-rmm/vdtg-rmm-daemon
 
     # Run application
     bash /opt/vdtg-rmm/bin/vdtg-rmm >> /var/log/vdtg-rmm.log 2>&1

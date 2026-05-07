@@ -23,3 +23,4 @@ openSUSE: https://github.com/Van-Der-Toorn-Geertse/vdtg-rmm/tree/opensuse
 Debian: https://github.com/Van-Der-Toorn-Geertse/vdtg-rmm/tree/debian
 Ubuntu: https://github.com/Van-Der-Toorn-Geertse/vdtg-rmm/tree/ubuntu
 Windows: https://github.com/Van-Der-Toorn-Geertse/vdtg-rmm/tree/windows
+RHEL (for example AlmaLinux): https://github.com/Van-Der-Toorn-Geertse/vdtg-rmm/tree/rhel
